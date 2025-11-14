@@ -276,3 +276,4 @@ credentials.json
 *.pid
 *.seed
 *.pid.lock
+health_data_exports/
