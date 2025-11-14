@@ -1,0 +1,162 @@
+{
+  "dataRange": {
+    "endDate": "2025-11-13T14:31:09Z",
+    "startDate": "2025-11-12T14:31:09Z"
+  },
+  "deviceId": "1D271BE2-D151-421C-9CC1-5F1085CC1575",
+  "exportTimestamp": "2025-11-13T14:31:10Z",
+  "metrics": [
+    {
+      "endDate": "2025-11-13T13:51:39Z",
+      "metadata": {
+        "HKMetadataKeyHeartRateMotionContext": "1",
+        "device": "Apple Watch"
+      },
+      "sourceApp": "com.apple.health.F717335E-166D-47D4-9B8A-7EBF3B77FB8A",
+      "startDate": "2025-11-13T13:51:39Z",
+      "type": "HKQuantityTypeIdentifierHeartRate",
+      "unit": "bpm",
+      "value": 71
+    },
+    {
+      "endDate": "2025-11-13T13:56:13Z",
+      "metadata": {
+        "HKMetadataKeyHeartRateMotionContext": "1",
+        "device": "Apple Watch"
+      },
+      "sourceApp": "com.apple.health.F717335E-166D-47D4-9B8A-7EBF3B77FB8A",
+      "startDate": "2025-11-13T13:56:13Z",
+      "type": "HKQuantityTypeIdentifierHeartRate",
+      "unit": "bpm",
+      "value": 74
+    },
+    {
+      "endDate": "2025-11-13T14:08:37Z",
+      "metadata": {
+        "device": "Apple Watch"
+      },
+      "sourceApp": "com.apple.health.F717335E-166D-47D4-9B8A-7EBF3B77FB8A",
+      "startDate": "2025-11-13T13:58:34Z",
+      "type": "HKQuantityTypeIdentifierActiveEnergyBurned",
+      "unit": "kcal",
+      "value": 2.258
+    },
+    {
+      "endDate": "2025-11-13T13:59:25Z",
+      "metadata": {
+        "device": "Apple Watch"
+      },
+      "sourceApp": "com.apple.health.F717335E-166D-47D4-9B8A-7EBF3B77FB8A",
+      "startDate": "2025-11-13T13:59:22Z",
+      "type": "HKQuantityTypeIdentifierStepCount",
+      "unit": "count",
+      "value": 13
+    },
+    {
+      "endDate": "2025-11-13T14:01:36Z",
+      "metadata": {
+        "HKMetadataKeyHeartRateMotionContext": "1",
+        "device": "Apple Watch"
+      },
+      "sourceApp": "com.apple.health.F717335E-166D-47D4-9B8A-7EBF3B77FB8A",
+      "startDate": "2025-11-13T14:01:36Z",
+      "type": "HKQuantityTypeIdentifierHeartRate",
+      "unit": "bpm",
+      "value": 89
+    },
+    {
+      "endDate": "2025-11-13T14:07:19Z",
+      "metadata": {
+        "HKMetadataKeyHeartRateMotionContext": "1",
+        "device": "Apple Watch"
+      },
+      "sourceApp": "com.apple.health.F717335E-166D-47D4-9B8A-7EBF3B77FB8A",
+      "startDate": "2025-11-13T14:07:19Z",
+      "type": "HKQuantityTypeIdentifierHeartRate",
+      "unit": "bpm",
+      "value": 87
+    },
+    {
+      "endDate": "2025-11-13T14:10:11Z",
+      "metadata": {
+        "HKMetadataKeyHeartRateMotionContext": "1",
+        "device": "Apple Watch"
+      },
+      "sourceApp": "com.apple.health.F717335E-166D-47D4-9B8A-7EBF3B77FB8A",
+      "startDate": "2025-11-13T14:10:11Z",
+      "type": "HKQuantityTypeIdentifierHeartRate",
+      "unit": "bpm",
+      "value": 85
+    },
+    {
+      "endDate": "2025-11-13T14:20:22Z",
+      "metadata": {
+        "device": "Apple Watch"
+      },
+      "sourceApp": "com.apple.health.F717335E-166D-47D4-9B8A-7EBF3B77FB8A",
+      "startDate": "2025-11-13T14:10:30Z",
+      "type": "HKQuantityTypeIdentifierActiveEnergyBurned",
+      "unit": "kcal",
+      "value": 9.220000000000002
+    },
+    {
+      "endDate": "2025-11-13T14:20:01Z",
+      "metadata": {
+        "device": "Apple Watch"
+      },
+      "sourceApp": "com.apple.health.F717335E-166D-47D4-9B8A-7EBF3B77FB8A",
+      "startDate": "2025-11-13T14:11:26Z",
+      "type": "HKQuantityTypeIdentifierStepCount",
+      "unit": "count",
+      "value": 105
+    },
+    {
+      "endDate": "2025-11-13T14:16:36Z",
+      "metadata": {
+        "device": "iPhone"
+      },
+      "sourceApp": "com.apple.health.A2570DEF-3FC2-4CF2-B825-3FD7A41474FE",
+      "startDate": "2025-11-13T14:14:08Z",
+      "type": "HKQuantityTypeIdentifierStepCount",
+      "unit": "count",
+      "value": 60
+    },
+    {
+      "endDate": "2025-11-13T14:18:05Z",
+      "metadata": {
+        "HKMetadataKeyHeartRateMotionContext": "1",
+        "device": "Apple Watch"
+      },
+      "sourceApp": "com.apple.health.F717335E-166D-47D4-9B8A-7EBF3B77FB8A",
+      "startDate": "2025-11-13T14:18:05Z",
+      "type": "HKQuantityTypeIdentifierHeartRate",
+      "unit": "bpm",
+      "value": 85
+    },
+    {
+      "endDate": "2025-11-13T14:23:35Z",
+      "metadata": {
+        "HKMetadataKeyHeartRateMotionContext": "0",
+        "device": "Apple Watch"
+      },
+      "sourceApp": "com.apple.health.F717335E-166D-47D4-9B8A-7EBF3B77FB8A",
+      "startDate": "2025-11-13T14:23:35Z",
+      "type": "HKQuantityTypeIdentifierHeartRate",
+      "unit": "bpm",
+      "value": 87.64876556396484
+    },
+    {
+      "endDate": "2025-11-13T14:23:40Z",
+      "metadata": {
+        "HKMetadataKeyHeartRateMotionContext": "1",
+        "device": "Apple Watch"
+      },
+      "sourceApp": "com.apple.health.F717335E-166D-47D4-9B8A-7EBF3B77FB8A",
+      "startDate": "2025-11-13T14:23:40Z",
+      "type": "HKQuantityTypeIdentifierHeartRate",
+      "unit": "bpm",
+      "value": 87
+    }
+  ],
+  "userId": "CB99F596-9067-4786-AD08-639BBF0A96C0"
+}

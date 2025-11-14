@@ -1,0 +1,278 @@
+# ==========================================
+# CloudCare Project - Root .gitignore
+# ==========================================
+
+# ==========================================
+# OS Files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*~
+
+# ==========================================
+# Python (Backend)
+# ==========================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+.env.local
+.env.production
+
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Prisma
+prisma/migrations/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# ==========================================
+# Android Studio / Gradle
+# ==========================================
+# Built application files
+*.apk
+*.ap_
+*.aab
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+release/
+
+# Gradle files
+.gradle/
+build/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Android Studio
+.idea/
+*.iml
+.externalNativeBuild
+.cxx/
+*.iws
+*.ipr
+*~
+.DS_Store
+
+# Android Studio Navigation editor temp files
+.navigation/
+
+# Android Studio captures folder
+captures/
+
+# IntelliJ
+*.iml
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/gradle.xml
+.idea/assetWizardSettings.xml
+.idea/dictionaries
+.idea/libraries
+.idea/caches
+.idea/modules.xml
+.idea/navEditor.xml
+
+# Keystore files
+*.jks
+*.keystore
+
+# Google Services (e.g. APIs or Firebase)
+google-services.json
+
+# Android Profiling
+*.hprof
+
+# Kotlin
+.kotlin/
+
+# ==========================================
+# IDEs and Editors
+# ==========================================
+# VS Code
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.tmlanguage.cache
+*.tmPreferences.cache
+*.stTheme.cache
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# ==========================================
+# Node.js (if frontend exists)
+# ==========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+package-lock.json
+yarn.lock
+
+# ==========================================
+# Docker
+# ==========================================
+docker-compose.override.yml
+
+# ==========================================
+# Temporary & Test Files
+# ==========================================
+# Test server
+test_server.py
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+.swp
+.swo
+
+# ==========================================
+# Documentation (Keep only essential docs)
+# ==========================================
+# Status tracking documents (not needed in repo)
+APPLE_HEALTH_COMPLETE.md
+BACKEND_IMPLEMENTATION_COMPLETE.md
+DOCUMENTATION_INDEX.md
+SETUP.md
+
+# Android app progress docs (redundant)
+CloudCare Android App/ALL_BUTTONS_LINKED.md
+CloudCare Android App/ALL_PAGES_NAVIGATED.md
+CloudCare Android App/BUGS_FIXED.md
+CloudCare Android App/BUILD_COMPLETE.md
+CloudCare Android App/BUILD_FIXED.md
+CloudCare Android App/HOSPITAL_PAGES_COMPLETE.md
+CloudCare Android App/MISSING_FEATURES_ANALYSIS.md
+CloudCare Android App/PRODUCTION_READY.md
+CloudCare Android App/UI_FIXES_COMPLETE.md
+
+# ==========================================
+# Health Data Exports (Sample/Test Data)
+# ==========================================
+# Uncomment if you don't want to track sample health data
+# health_data_exports/
+
+# ==========================================
+# Media & Assets
+# ==========================================
+# Large media files (uncomment if needed)
+# *.mp4
+# *.mov
+# *.avi
+# *.mkv
+
+# ==========================================
+# Secrets & Credentials
+# ==========================================
+# Never commit these!
+*.pem
+*.key
+*.cert
+*.p12
+.secrets/
+secrets.yml
+credentials.json
+
+# ==========================================
+# Backup Files
+# ==========================================
+*.bak
+*.backup
+*.old
+*~
+
+# ==========================================
+# Misc
+# ==========================================
+.cache/
+*.pid
+*.seed
+*.pid.lock
