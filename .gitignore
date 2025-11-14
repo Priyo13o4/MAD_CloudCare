@@ -237,8 +237,8 @@ CloudCare Android App/UI_FIXES_COMPLETE.md
 # ==========================================
 # Health Data Exports (Sample/Test Data)
 # ==========================================
-# Uncomment if you don't want to track sample health data
-# health_data_exports/
+# Apple Health JSON exports - test/sample data
+health_data_exports/
 
 # ==========================================
 # Media & Assets
