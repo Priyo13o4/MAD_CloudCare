@@ -277,3 +277,4 @@ credentials.json
 *.seed
 *.pid.lock
 health_data_exports/
+CloudSync/

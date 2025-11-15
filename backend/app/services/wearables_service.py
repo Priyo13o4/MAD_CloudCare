@@ -8,9 +8,14 @@ Handles high-frequency health metrics data efficiently.
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 import structlog
+import hashlib
+import json
+from pymongo import ASCENDING
+from pymongo.errors import DuplicateKeyError
 
 from app.core.database import get_mongodb, get_prisma
 from app.models.wearables import WearableDataCreate, HealthMetrics
+from dateutil.parser import parse as parse_date
 
 logger = structlog.get_logger(__name__)
 
@@ -22,10 +27,61 @@ class WearablesService:
     Uses MongoDB for high-performance time-series data storage.
     """
     
+    _index_ensured = False
+    
+    @staticmethod
+    async def ensure_deduplication_index():
+        """
+        Ensure unique index exists on health_metrics collection.
+        
+        For individual metrics, creates index on:
+        - (patient_id, device_id, metric_type, timestamp) for uniqueness
+        - (patient_id, metric_type, timestamp) for fast queries
+        """
+        if WearablesService._index_ensured:
+            return
+        
+        try:
+            mongodb = get_mongodb()
+            
+            # Unique index to prevent exact duplicates
+            await mongodb.health_metrics.create_index(
+                [
+                    ("patient_id", ASCENDING),
+                    ("device_id", ASCENDING),
+                    ("metric_type", ASCENDING),
+                    ("timestamp", ASCENDING),
+                ],
+                unique=True,
+                name="unique_patient_device_metric_timestamp",
+                background=True
+            )
+            
+            # Query optimization index
+            await mongodb.health_metrics.create_index(
+                [
+                    ("patient_id", ASCENDING),
+                    ("metric_type", ASCENDING),
+                    ("timestamp", ASCENDING),
+                ],
+                name="query_patient_metric_time",
+                background=True
+            )
+            
+            logger.info("Ensured indexes on health_metrics collection")
+            WearablesService._index_ensured = True
+            
+        except Exception as e:
+            logger.debug(f"Index creation note: {e}")
+            WearablesService._index_ensured = True
+    
     @staticmethod
     async def store_health_metrics(patient_id: str, device_id: str, metrics: HealthMetrics) -> Dict[str, Any]:
         """
         Store health metrics from a wearable device.
+        
+        Uses content-based deduplication via hash of metric values.
+        If the same data is uploaded multiple times, it will be deduplicated.
         
         Args:
             patient_id: Patient's unique ID
@@ -33,14 +89,39 @@ class WearablesService:
             metrics: Health metrics data
             
         Returns:
-            Dict: Stored document with ID
+            Dict: Stored document with ID and deduplication status
         """
+        # Ensure deduplication index exists
+        await WearablesService.ensure_deduplication_index()
+        
         mongodb = get_mongodb()
+        current_time = datetime.utcnow()
+        
+        # Create a hash of the metric values for content-based deduplication
+        # This allows detecting when the same data is uploaded multiple times
+        metrics_dict = metrics.model_dump()
+        
+        # Check if all metric values are None (empty upload)
+        has_any_data = any(value is not None for value in metrics_dict.values())
+        
+        if not has_any_data:
+            logger.warning(
+                "Attempted to store empty health metrics (all values are null)",
+                patient_id=patient_id,
+                device_id=device_id
+            )
+            # Generate a special hash for empty metrics to avoid null constraint issues
+            metrics_hash = hashlib.sha256(f"empty_{current_time.isoformat()}".encode()).hexdigest()
+        else:
+            # Sort keys to ensure consistent hash
+            metrics_str = json.dumps(metrics_dict, sort_keys=True)
+            metrics_hash = hashlib.sha256(metrics_str.encode()).hexdigest()
         
         document = {
             "patient_id": patient_id,
             "device_id": device_id,
-            "timestamp": datetime.utcnow(),
+            "timestamp": current_time,
+            "metrics_hash": metrics_hash,  # Used for unique index
             "heart_rate": metrics.heart_rate,
             "steps": metrics.steps,
             "sleep_hours": metrics.sleep_hours,
@@ -50,17 +131,71 @@ class WearablesService:
             "blood_pressure_diastolic": metrics.blood_pressure_diastolic,
         }
         
-        result = await mongodb.health_metrics.insert_one(document)
+        # Use upsert to update if duplicate exists, insert if new
+        query = {
+            "patient_id": patient_id,
+            "device_id": device_id,
+            "metrics_hash": metrics_hash,
+        }
         
-        # Update device sync info in PostgreSQL
-        await WearablesService._update_device_sync(device_id)
-        
-        # Check for health alerts
-        await WearablesService._check_health_alerts(patient_id, metrics)
-        
-        logger.info("Stored health metrics", patient_id=patient_id, device_id=device_id)
-        
-        return {"id": str(result.inserted_id), **document}
+        try:
+            result = await mongodb.health_metrics.update_one(
+                query,
+                {"$set": document},
+                upsert=True
+            )
+            
+            was_duplicate = result.matched_count > 0
+            
+            if was_duplicate:
+                logger.info(
+                    "Updated existing health metrics (deduplicated)",
+                    patient_id=patient_id,
+                    device_id=device_id,
+                    metrics_hash=metrics_hash[:16]
+                )
+            else:
+                logger.info(
+                    "Stored new health metrics",
+                    patient_id=patient_id,
+                    device_id=device_id
+                )
+            
+            # Update device sync info in PostgreSQL
+            await WearablesService._update_device_sync(device_id)
+            
+            # Check for health alerts only for new data
+            if not was_duplicate:
+                await WearablesService._check_health_alerts(patient_id, metrics)
+            
+            # Get the document ID
+            doc_id = result.upserted_id if result.upserted_id else None
+            if not doc_id:
+                # Document was updated, fetch its ID
+                existing = await mongodb.health_metrics.find_one(query)
+                doc_id = existing["_id"] if existing else None
+            
+            return {
+                "id": str(doc_id) if doc_id else "updated",
+                "was_duplicate": was_duplicate,
+                **document
+            }
+            
+        except DuplicateKeyError:
+            # Race condition: another request created the document between our check and insert
+            logger.warning(
+                "Duplicate health metrics detected (race condition)",
+                patient_id=patient_id,
+                device_id=device_id,
+                metrics_hash=metrics_hash[:16]
+            )
+            # Fetch and return the existing document
+            existing = await mongodb.health_metrics.find_one(query)
+            return {
+                "id": str(existing["_id"]) if existing else "unknown",
+                "was_duplicate": True,
+                **document
+            }
     
     @staticmethod
     async def get_recent_metrics(patient_id: str, hours: int = 24) -> List[Dict[str, Any]]:
@@ -154,6 +289,83 @@ class WearablesService:
                 )
         except Exception as e:
             logger.error("Failed to update device sync", device_id=device_id, error=str(e))
+    
+    @staticmethod
+    async def store_individual_metrics(patient_id: str, device_id: str, metrics: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Store individual health metrics (time-series data).
+        
+        Each metric is stored as a separate document for detailed analysis and graphing.
+        Deduplication based on patient + device + metric_type + timestamp.
+        
+        Args:
+            patient_id: Patient's unique ID
+            device_id: Device ID
+            metrics: List of individual metric dictionaries
+            
+        Returns:
+            Dict with storage statistics
+        """
+        await WearablesService.ensure_deduplication_index()
+        
+        mongodb = get_mongodb()
+        
+        stored_count = 0
+        duplicate_count = 0
+        error_count = 0
+        
+        for metric in metrics:
+            try:
+                # Parse the timestamp
+                timestamp_str = metric.get("end_date") or metric.get("start_date")
+                timestamp = parse_date(timestamp_str)
+                
+                document = {
+                    "patient_id": patient_id,
+                    "device_id": device_id,
+                    "metric_type": metric["metric_type"],
+                    "value": metric["value"],
+                    "unit": metric["unit"],
+                    "timestamp": timestamp,
+                    "start_date": parse_date(metric["start_date"]) if metric.get("start_date") else timestamp,
+                    "end_date": parse_date(metric["end_date"]) if metric.get("end_date") else timestamp,
+                    "source_app": metric.get("source_app", "Unknown"),
+                    "metadata": metric.get("metadata", {}),
+                    "created_at": datetime.utcnow(),
+                }
+                
+                # Try to insert
+                try:
+                    await mongodb.health_metrics.insert_one(document)
+                    stored_count += 1
+                except DuplicateKeyError:
+                    duplicate_count += 1
+                    
+            except Exception as e:
+                error_count += 1
+                logger.warning(f"Failed to store individual metric: {e}")
+        
+        logger.info(
+            "Stored individual metrics",
+            patient_id=patient_id,
+            device_id=device_id,
+            stored=stored_count,
+            duplicates=duplicate_count,
+            errors=error_count,
+            total=len(metrics)
+        )
+        
+        # Update device sync info
+        if stored_count > 0:
+            await WearablesService._update_device_sync(device_id)
+        
+        return {
+            "stored_count": stored_count,
+            "duplicate_count": duplicate_count,
+            "error_count": error_count,
+            "total_metrics": len(metrics),
+            "was_duplicate": duplicate_count == len(metrics) and stored_count == 0
+        }
     
     @staticmethod
     async def _check_health_alerts(patient_id: str, metrics: HealthMetrics):

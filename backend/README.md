@@ -17,6 +17,31 @@ FastAPI-based backend for CloudCare healthcare management system with Aadhar-bas
 
 - Docker and Docker Compose
 - Python 3.11+ (for local development)
+- (Optional) Cloudflare Tunnel for stable public URL
+
+### 🌐 Public Access via Cloudflare Tunnel
+
+The backend is accessible via Cloudflare Tunnel at:
+**https://cloudcare.pipfactor.com**
+
+This provides:
+- ✅ Stable URL that never changes (no dynamic IPs)
+- ✅ Works from anywhere (not just local WiFi)
+- ✅ HTTPS with automatic SSL certificates
+- ✅ Perfect for iOS/Android app testing
+
+**Tunnel Configuration** (`~/.cloudflared/config.yml`):
+```yaml
+ingress:
+  - hostname: cloudcare.pipfactor.com
+    service: http://localhost:8000
+```
+
+**Start/Restart Tunnel**:
+```bash
+pkill cloudflared
+cloudflared tunnel run ai-trading-frontend
+```
 
 ### Using Docker (Recommended)
 
@@ -37,9 +62,10 @@ FastAPI-based backend for CloudCare healthcare management system with Aadhar-bas
    ```
 
 4. **Access the API:**
-   - API: http://localhost:8000
-   - Docs: http://localhost:8000/docs
-   - ReDoc: http://localhost:8000/redoc
+   - Local: http://localhost:8000
+   - Public (Cloudflare Tunnel): https://cloudcare.pipfactor.com
+   - API Docs: https://cloudcare.pipfactor.com/docs
+   - ReDoc: https://cloudcare.pipfactor.com/redoc
 
 ### Local Development
 
@@ -79,33 +105,36 @@ FastAPI-based backend for CloudCare healthcare management system with Aadhar-bas
 ```
 backend/
 ├── app/
-│   ├── main.py                 # FastAPI application entry point
+│   ├── main.py                      # FastAPI application entry point
 │   ├── core/
-│   │   ├── config.py          # Configuration management
-│   │   └── database.py        # Database connections
+│   │   ├── config.py               # Configuration management
+│   │   └── database.py             # Database connections (PostgreSQL, MongoDB, Redis)
 │   ├── api/
-│   │   └── v1/                # API version 1
-│   │       ├── auth.py        # Authentication endpoints
-│   │       ├── wearables.py   # Wearables & health data
-│   │       ├── patient.py     # Patient management
-│   │       ├── doctor.py      # Doctor management
-│   │       ├── hospital.py    # Hospital management
-│   │       ├── consents.py    # Consent management
-│   │       ├── documents.py   # Document requests
-│   │       └── health.py      # Health data endpoints
+│   │   └── v1/                     # API version 1
+│   │       ├── auth.py             # Authentication endpoints
+│   │       ├── wearables.py        # Wearables & health data (iOS/Android)
+│   │       ├── patient.py          # Patient management
+│   │       ├── doctor.py           # Doctor management
+│   │       ├── hospital.py         # Hospital management
+│   │       ├── consents.py         # Consent management
+│   │       ├── documents.py        # Document requests
+│   │       └── health.py           # Health data endpoints
 │   ├── services/
-│   │   ├── auth_service.py    # Authentication logic
-│   │   ├── aadhar_uid.py      # Aadhar UID generation
-│   │   └── wearables_service.py # Wearables data handling
+│   │   ├── auth_service.py         # Authentication logic
+│   │   ├── aadhar_uid.py           # Aadhar UID generation (HMAC-SHA256)
+│   │   ├── wearables_service.py    # Individual metrics storage & deduplication
+│   │   └── apple_health_parser.py  # Apple Health JSON parser
 │   └── models/
-│       ├── auth.py            # Auth Pydantic models
-│       └── wearables.py       # Wearables Pydantic models
+│       ├── auth.py                 # Auth Pydantic models
+│       └── wearables.py            # Wearables Pydantic models
 ├── prisma/
-│   └── schema.prisma          # Database schema
-├── docker-compose.yml         # Multi-container setup
-├── Dockerfile                 # API container
-├── requirements.txt           # Python dependencies
-└── .env.example              # Environment template
+│   └── schema.prisma               # PostgreSQL database schema
+├── docker-compose.yml              # Multi-container setup (API, PostgreSQL, MongoDB, Redis)
+├── Dockerfile                      # API container
+├── requirements.txt                # Python dependencies
+├── scripts/
+│   └── start_local.sh             # Auto-detect WiFi IP for local testing
+└── .env.example                   # Environment template
 ```
 
 ## 🔑 Key Features
@@ -118,16 +147,25 @@ backend/
 ### 2. Dual Database Strategy
 - **PostgreSQL**: Critical structured data (authentication, patient records, consents)
 - **MongoDB**: High-throughput wearable data (health metrics, device data)
+- **Individual Metrics Storage**: Each health reading stored separately for AI/ML analysis
+- **Time-Series Optimization**: Efficient indexing for temporal queries
 
 ### 3. Real-time Health Monitoring
 - Automatic health alerts based on wearable data
 - Emergency alert system for critical vitals
 - 24/7 health metrics tracking
+- **Apple Health Integration**: Direct import from iPhone/Apple Watch
+- **Multi-level Deduplication**: App-level + Backend-level duplicate prevention
 
 ### 4. Document Request System
 - Request medical documents from other hospitals
 - Consent-based access control
 - Audit trail for all data access
+
+### 5. QR Code Device Pairing
+- Secure pairing between iOS CloudSync app and Android app
+- QR code generation with expiring tokens
+- Link Apple Watch data to patient accounts
 
 ## 🔐 Security
 
@@ -145,12 +183,18 @@ backend/
 - `POST /api/v1/auth/refresh` - Refresh token
 - `GET /api/v1/auth/me` - Get current user
 
-### Wearables
+### Wearables & Health Metrics
 - `POST /api/v1/wearables/devices` - Register device
 - `GET /api/v1/wearables/devices` - Get devices
+- `GET /api/v1/wearables/devices/paired` - Get paired devices for user
+- `POST /api/v1/wearables/devices/pair` - Pair iOS device to Android user (QR code)
 - `POST /api/v1/wearables/sync` - Sync health data
-- `GET /api/v1/wearables/metrics/recent` - Get recent metrics
-- `GET /api/v1/wearables/summary` - Get health summary
+- `POST /api/v1/wearables/import/apple-health` - Import Apple Health JSON (single)
+- `POST /api/v1/wearables/import/apple-health/batch` - Import Apple Health JSON (batch)
+- `GET /api/v1/wearables/metrics/recent?hours=24` - Get recent individual metrics
+- `GET /api/v1/wearables/metrics/by-type?type=heart_rate` - Get specific metric type
+- `GET /api/v1/wearables/summary/today` - Get today's health summary
+- `GET /api/v1/wearables/summary` - Get aggregated health summary
 
 ### Health
 - `GET /health` - Health check endpoint
@@ -243,6 +287,9 @@ AADHAR_ENCRYPTION_KEY=your-aadhar-key-change-this
 DATABASE_URL=postgresql://cloudcare:cloudcare_password@postgres:5432/cloudcare_db
 MONGODB_URL=mongodb://mongodb:27017
 REDIS_URL=redis://redis:6379/0
+
+# Public URL (Cloudflare Tunnel)
+CLOUDFLARE_TUNNEL_URL=https://cloudcare.pipfactor.com
 
 # CORS (add your frontend URLs)
 CORS_ORIGINS=http://localhost:3000,http://localhost:8080

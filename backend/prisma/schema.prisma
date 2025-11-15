@@ -397,6 +397,25 @@ model WearableDevice {
   @@map("wearable_devices")
 }
 
+model DevicePairing {
+  id              String   @id @default(uuid())
+  iosUserId       String   @map("ios_user_id") // iOS CloudSync app user ID
+  iosDeviceId     String   @map("ios_device_id") // Apple device identifier
+  androidUserId   String   @map("android_user_id") // Android user ID
+  deviceName      String   @map("device_name")
+  deviceType      String   @map("device_type")
+  pairingCode     String   @map("pairing_code")
+  pairedAt        DateTime @default(now()) @map("paired_at")
+  isActive        Boolean  @default(true) @map("is_active")
+  lastSyncAt      DateTime? @map("last_sync_at")
+  totalMetrics    Int      @default(0) @map("total_metrics")
+
+  @@unique([iosDeviceId, androidUserId])
+  @@index([androidUserId])
+  @@index([iosDeviceId])
+  @@map("device_pairings")
+}
+
 // Note: Wearable data is stored in MongoDB for better performance
 
 // ==================== Activities & Consents ====================

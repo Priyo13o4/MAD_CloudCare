@@ -20,7 +20,9 @@ class AppleHealthParser:
     """
     
     # Mapping of Apple HealthKit types to our metric names
+    # Supports both HealthKit identifiers and iOS display names
     HEALTH_KIT_TYPE_MAPPING = {
+        # HealthKit identifiers (standard format)
         "HKQuantityTypeIdentifierHeartRate": "heart_rate",
         "HKQuantityTypeIdentifierStepCount": "steps",
         "HKQuantityTypeIdentifierActiveEnergyBurned": "calories",
@@ -31,6 +33,19 @@ class AppleHealthParser:
         "HKQuantityTypeIdentifierBloodPressureDiastolic": "blood_pressure_diastolic",
         "HKQuantityTypeIdentifierSleepAnalysis": "sleep",
         "HKCategoryTypeIdentifierSleepAnalysis": "sleep_category",
+        "HKQuantityTypeIdentifierRestingHeartRate": "resting_heart_rate",
+        "HKQuantityTypeIdentifierVO2Max": "vo2_max",
+        
+        # iOS display names (what the app actually sends)
+        "Heart Rate": "heart_rate",
+        "Step Count": "steps",
+        "Active Energy": "calories",
+        "Walking/Running Distance": "distance",
+        "Flights Climbed": "flights_climbed",
+        "Sleep Analysis": "sleep",
+        "Resting Heart Rate": "resting_heart_rate",
+        "VO2 Max": "vo2_max",
+        "Workouts": "workout",
     }
     
     @staticmethod
@@ -94,12 +109,14 @@ class AppleHealthParser:
             Dict with aggregated data for each metric type
         """
         aggregated = {}
+        unknown_types = set()
         
         for metric in metrics:
             metric_type = metric.get("type")
             our_type = AppleHealthParser.HEALTH_KIT_TYPE_MAPPING.get(metric_type)
             
             if not our_type:
+                unknown_types.add(metric_type)
                 continue  # Skip unknown types
             
             value = metric.get("value")
@@ -117,6 +134,9 @@ class AppleHealthParser:
             aggregated[our_type]["values"].append(value)
             aggregated[our_type]["sum"] += value
             aggregated[our_type]["count"] += 1
+        
+        if unknown_types:
+            logger.debug(f"Skipped {len(unknown_types)} unknown metric types", types=list(unknown_types)[:5])
         
         # Calculate averages and totals
         for metric_type, data in aggregated.items():
@@ -168,18 +188,14 @@ class AppleHealthParser:
     def convert_to_cloudcare_format(aggregated: Dict[str, Any]) -> Dict[str, Any]:
         """
         Convert aggregated metrics to CloudCare's HealthMetrics format.
-        
-        Args:
-            aggregated: Aggregated metrics from parse_health_export
-            
-        Returns:
-            Dict in CloudCare HealthMetrics format
+        DEPRECATED: Kept for backward compatibility.
+        Use convert_to_individual_metrics() for new implementation.
         """
         metrics = {}
         
         # Heart rate (average)
         if "heart_rate" in aggregated:
-            metrics["heart_rate"] = int(aggregated["heart_rate"].get("average", 0))
+            metrics["heart_rate"] = int(round(aggregated["heart_rate"].get("average", 0)))
         
         # Steps (total)
         if "steps" in aggregated:
@@ -189,26 +205,55 @@ class AppleHealthParser:
         if "calories" in aggregated:
             metrics["calories"] = int(aggregated["calories"].get("total", 0))
         
-        # Oxygen level (average)
-        if "oxygen_level" in aggregated:
-            metrics["oxygen_level"] = int(aggregated["oxygen_level"].get("average", 0))
-        
-        # Blood pressure
-        if "blood_pressure_systolic" in aggregated:
-            metrics["blood_pressure_systolic"] = int(
-                aggregated["blood_pressure_systolic"].get("average", 0)
-            )
-        
-        if "blood_pressure_diastolic" in aggregated:
-            metrics["blood_pressure_diastolic"] = int(
-                aggregated["blood_pressure_diastolic"].get("average", 0)
-            )
-        
-        # Sleep (if available - would need to be calculated from sleep analysis data)
-        # This is more complex as Apple stores sleep as categories, not hours
-        # For now, we'll skip it and handle it separately if needed
-        
+        logger.debug(f"Converted {len(aggregated)} metric types to CloudCare format", metrics=list(metrics.keys()))
         return metrics
+    
+    @staticmethod
+    def convert_to_individual_metrics(metrics: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Convert raw Apple Health metrics to individual CloudCare format.
+        Each metric becomes a separate document for time-series analysis.
+        
+        Args:
+            metrics: List of raw Apple Health metrics
+            
+        Returns:
+            List of individual metric documents in CloudCare format
+        """
+        individual_metrics = []
+        unknown_types = set()
+        
+        for metric in metrics:
+            metric_type = metric.get("type")
+            our_type = AppleHealthParser.HEALTH_KIT_TYPE_MAPPING.get(metric_type)
+            
+            if not our_type:
+                unknown_types.add(metric_type)
+                continue
+            
+            value = metric.get("value")
+            if value is None:
+                continue
+            
+            # Parse timestamps
+            start_date = metric.get("startDate")
+            end_date = metric.get("endDate")
+            
+            individual_metrics.append({
+                "metric_type": our_type,
+                "value": value,
+                "unit": metric.get("unit"),
+                "start_date": start_date,
+                "end_date": end_date,
+                "source_app": metric.get("sourceApp", "Unknown"),
+                "metadata": metric.get("metadata", {})
+            })
+        
+        if unknown_types:
+            logger.debug(f"Skipped {len(unknown_types)} unknown metric types", types=list(unknown_types)[:5])
+        
+        logger.info(f"Converted {len(individual_metrics)} individual metrics", unique_types=len(set(m["metric_type"] for m in individual_metrics)))
+        return individual_metrics
     
     @staticmethod
     def extract_device_info(data: Dict[str, Any]) -> Dict[str, Any]:

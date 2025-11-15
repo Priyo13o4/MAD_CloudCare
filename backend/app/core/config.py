@@ -6,7 +6,8 @@ All environment variables are validated and type-checked.
 """
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
+from pydantic import field_validator
+from typing import List, Union
 import os
 
 
@@ -43,7 +44,15 @@ class Settings(BaseSettings):
     REDIS_CACHE_TTL: int = 3600
     
     # CORS Settings
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    CORS_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://localhost:8080"]
+    
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Parse CORS_ORIGINS from comma-separated string or list."""
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
     
     # Wearables Configuration
     WEARABLES_SYNC_INTERVAL_MINUTES: int = 15
@@ -51,7 +60,18 @@ class Settings(BaseSettings):
     
     # File Upload
     MAX_UPLOAD_SIZE_MB: int = 10
-    ALLOWED_FILE_TYPES: List[str] = ["pdf", "jpg", "jpeg", "png", "doc", "docx"]
+    ALLOWED_FILE_TYPES: Union[List[str], str] = ["pdf", "jpg", "jpeg", "png", "doc", "docx"]
+    
+    # Public URL (Cloudflare Tunnel)
+    CLOUDFLARE_TUNNEL_URL: str = "https://cloudcare.pipfactor.com"
+
+    @field_validator("ALLOWED_FILE_TYPES", mode="before")
+    @classmethod
+    def parse_allowed_file_types(cls, v):
+        """Parse ALLOWED_FILE_TYPES from comma-separated string or list."""
+        if isinstance(v, str):
+            return [ftype.strip() for ftype in v.split(",") if ftype.strip()]
+        return v
     
     # Logging
     LOG_LEVEL: str = "INFO"
@@ -61,6 +81,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
+        extra="ignore",  # Ignore extra environment variables not defined in the model
     )
     
     @property

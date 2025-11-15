@@ -57,11 +57,15 @@ CloudCare is a modern healthcare management platform that connects patients, doc
 #### ⌚ Wearables & Health Tracking
 - Connect fitness trackers and smartwatches (Xiaomi Mi Band, Fitbit, Apple Watch, etc.)
 - **Apple Health Integration**: Import health data directly from iPhone/Apple Watch (JSON exports)
+- **Individual Metrics Storage**: Each health reading stored separately (27,185+ metrics tested)
+- **Multi-Level Deduplication**: iOS app-level + backend database-level duplicate prevention
+- **QR Code Pairing**: Securely link Apple Watch to Android account via QR code
 - Real-time health metrics (steps, heart rate, sleep, calories, oxygen saturation, blood pressure)
 - Historical data visualization with batch import support
 - Health insights and trends
 - Goal tracking with progress indicators
 - Automatic health alerts for abnormal vitals
+- **Time-Series Ready**: Optimized for AI/ML analysis (TimeGPT, Gemini Flash)
 
 #### 📄 Medical Records
 - View and manage all medical records
@@ -193,15 +197,20 @@ Microservices Architecture
 ```
 Dual Database System
 ├── PostgreSQL (Relational Data)
-│   ├── Users & Authentication
-│   ├── Patient Metadata
-│   ├── Consents
-│   ├── Facilities
+│   ├── Users & Authentication (JWT)
+│   ├── Patient Metadata (Aadhar-based UIDs)
+│   ├── Consents (Time-limited, revocable)
+│   ├── Facilities (Hospitals, clinics, labs)
+│   ├── Device Pairings (iOS ↔ Android linking)
 │   └── Audit Logs
 └── MongoDB (Document Store)
-    ├── Health Metrics (Time-Series)
-    ├── Wearable Data
-    ├── Medical Documents
+    ├── Health Metrics (Individual readings, not aggregated)
+    │   ├── 27,185+ metrics tested
+    │   ├── Indexed: (patient_id, device_id, metric_type, timestamp)
+    │   ├── Types: heart_rate, steps, calories, distance, flights_climbed, resting_heart_rate, vo2_max
+    │   └── Deduplication via unique compound index
+    ├── Wearable Data (Device sync status)
+    ├── Medical Documents (GridFS)
     └── Real-time Alerts
 ```
 
@@ -236,16 +245,24 @@ Comprehensive documentation is available in the following files:
    - Background sync
    - Testing instructions
 
-4. **[APPLE_HEALTH_INTEGRATION.md](APPLE_HEALTH_INTEGRATION.md)**
+4. **[docs/APPLE_HEALTH_INTEGRATION.md](docs/APPLE_HEALTH_INTEGRATION.md)**
    - Apple Health/HealthKit integration guide
-   - Supported metrics (8+ types)
+   - Supported metrics (7+ types)
    - API endpoints for import (single & batch)
    - Swift/Kotlin code examples
    - Testing with 21 sample files
-   - Data parsing and aggregation
+   - **Individual metrics storage** (not aggregated)
+   - Deduplication strategy
    - Troubleshooting guide
 
-5. **[backend/README.md](backend/README.md)**
+5. **[docs/IOS_QR_PAIRING_PROMPT.md](docs/IOS_QR_PAIRING_PROMPT.md)**
+   - QR code pairing feature implementation guide
+   - iOS CloudSync app pairing UI
+   - Pairing data structure and security
+   - SwiftUI code examples
+   - Android integration instructions
+
+6. **[backend/README.md](backend/README.md)**
    - Backend API documentation
    - FastAPI setup and configuration
    - Database connections (PostgreSQL, MongoDB, Redis)
@@ -275,21 +292,22 @@ Comprehensive documentation is available in the following files:
 
 | Component | Technology | Version |
 |-----------|-----------|---------|
-| Framework | Flask | 3.0.0 |
+| Framework | FastAPI | 3.0.0 |
 | Language | Python | 3.11+ |
+| ORM | Prisma | Latest |
 | API | RESTful | - |
 | Authentication | JWT | - |
-| Real-time | Socket.IO | 5.10.0 |
-| Task Queue | Celery | 5.3.4 |
+| Logging | structlog | Latest |
 | Cache | Redis | 7+ |
+| Tunnel | Cloudflare | - |
 
 ### Databases
 
 | Database | Use Case | Version |
 |----------|----------|---------|
-| PostgreSQL | User auth, metadata, consents | 15+ |
-| MongoDB | Health data, documents | 6.0+ |
-| Redis | Cache, sessions | 7+ |
+| PostgreSQL | User auth, metadata, consents, device pairings | 15+ |
+| MongoDB | Individual health metrics (27K+ tested), documents | 6.0+ |
+| Redis | Cache, sessions, real-time data | 7+ |
 
 ### Infrastructure
 
@@ -395,9 +413,9 @@ See **[ANDROID_BACKEND_INTEGRATION.md](ANDROID_BACKEND_INTEGRATION.md)** for com
 
 **Quick Integration:**
 
-1. Update `BASE_URL` in `RetrofitClient.kt`:
+1. Use the Cloudflare Tunnel URL in your app:
    ```kotlin
-   private const val BASE_URL = "http://YOUR_IP:5000/"
+   private const val BASE_URL = "https://cloudcare.pipfactor.com/api/v1/"
    ```
 
 2. Add dependencies to `app/build.gradle.kts`:
@@ -537,14 +555,20 @@ Optimized data storage using PostgreSQL for structured data and MongoDB for heal
 - ✅ UI/UX complete
 - ✅ Navigation flows
 
-### Phase 2: Backend Integration (In Progress)
-- 🚧 Flask backend API
-- 🚧 PostgreSQL + MongoDB setup
-- 🚧 Aadhar-based UID system
-- 🚧 JWT authentication
+### Phase 2: Backend Integration (✅ Complete)
+- ✅ FastAPI backend API
+- ✅ PostgreSQL + MongoDB setup
+- ✅ Aadhar-based UID system
+- ✅ JWT authentication (ready)
+- ✅ Cloudflare Tunnel (stable URL)
+- ✅ Docker containerization
 
-### Phase 3: Wearable Integration
+### Phase 3: Wearable Integration (✅ Complete)
 - ✅ Apple Health/HealthKit integration (JSON import)
+- ✅ Individual metrics storage (27,185+ metrics tested)
+- ✅ Multi-level deduplication (iOS + Backend)
+- ✅ QR code device pairing (iOS ↔ Android)
+- ✅ Backend API endpoints (7+ metric types)
 - 🚧 Real-time Apple Watch sync
 - ⏳ Google Fit integration
 - ⏳ Xiaomi Mi Band SDK

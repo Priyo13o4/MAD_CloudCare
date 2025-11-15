@@ -31,9 +31,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     """
     # Startup
     logger.info("🚀 Starting CloudCare Backend API...")
+    
+    # Print network information banner immediately
+    print("\n" + "="*80)
+    print("🏥 CloudCare Backend API - Network Information")
+    print("="*80)
+    print(f"📍 Local URL:            http://localhost:{settings.PORT}")
+    print(f"🌐 Public URL (Tunnel):  {settings.CLOUDFLARE_TUNNEL_URL}")
+    print(f"")
+    print("✅ FOR iPHONE/ANDROID: Use the Public URL above")
+    print("   (Cloudflare Tunnel - stable, works from anywhere)")
+    print("\n📚 API Documentation:")
+    print(f"   Swagger UI:   {settings.CLOUDFLARE_TUNNEL_URL}/docs")
+    print(f"   ReDoc:        {settings.CLOUDFLARE_TUNNEL_URL}/redoc")
+    print("\n⌚ Wearables Endpoints (iOS/Android apps):")
+    print(f"   Import Apple Health:  POST {settings.CLOUDFLARE_TUNNEL_URL}/api/{settings.API_VERSION}/wearables/import/apple-health")
+    print(f"   Test Connection:      GET  {settings.CLOUDFLARE_TUNNEL_URL}/api/{settings.API_VERSION}/wearables/import/apple-health")
+    print("="*80 + "\n")
+    
     try:
         await init_databases()
         logger.info("✅ All databases initialized successfully")
+        
     except Exception as e:
         logger.error(f"❌ Failed to initialize databases: {e}")
         raise
