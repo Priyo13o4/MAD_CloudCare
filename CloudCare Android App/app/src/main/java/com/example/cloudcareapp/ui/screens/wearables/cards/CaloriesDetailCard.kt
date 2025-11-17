@@ -80,7 +80,7 @@ fun CaloriesDetailCard(
                         )
                         Text(
                             text = "${calorieMetrics.size} days tracked",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
                     }
@@ -88,7 +88,7 @@ fun CaloriesDetailCard(
                 
                 Text(
                     text = "$todayCalories",
-                    style = MaterialTheme.typography.displaySmall,
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = CaloriesColor
                 )
@@ -166,7 +166,7 @@ private fun CalorieStatItem(
     ) {
         Text(
             text = value,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = CaloriesColor
         )

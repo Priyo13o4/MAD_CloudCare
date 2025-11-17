@@ -80,7 +80,7 @@ fun DistanceDetailCard(
                         )
                         Text(
                             text = "${distanceMetrics.size} days tracked",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
                     }
@@ -88,7 +88,7 @@ fun DistanceDetailCard(
                 
                 Text(
                     text = String.format("%.2f km", todayDistance),
-                    style = MaterialTheme.typography.displaySmall,
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = StepsColor
                 )
@@ -147,7 +147,7 @@ private fun DistanceStatItem(
     ) {
         Text(
             text = value,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = StepsColor
         )

@@ -87,7 +87,7 @@ fun HeartRateDetailCard(
                         )
                         Text(
                             text = heartRateStatus,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
                     }
@@ -95,7 +95,7 @@ fun HeartRateDetailCard(
                 
                 Text(
                     text = "$latestHeartRate bpm",
-                    style = MaterialTheme.typography.displaySmall,
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = HeartRateColor
                 )
@@ -162,7 +162,7 @@ private fun HeartRateStatItem(
     ) {
         Text(
             text = value,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = HeartRateColor
         )

@@ -79,7 +79,7 @@ fun StepsDetailCard(
                         )
                         Text(
                             text = "${stepMetrics.size} days tracked",
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.labelSmall,
                             color = TextSecondary
                         )
                     }
@@ -87,7 +87,7 @@ fun StepsDetailCard(
                 
                 Text(
                     text = todaySteps.toString(),
-                    style = MaterialTheme.typography.displaySmall,
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = StepsColor
                 )
@@ -166,7 +166,7 @@ private fun StepStatItem(
     ) {
         Text(
             text = value,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = StepsColor
         )

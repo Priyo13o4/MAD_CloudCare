@@ -52,43 +52,43 @@ fun SleepDetailCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(SleepColor.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .background(SleepColor.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Nightlight,
-                            contentDescription = "Sleep",
-                            tint = SleepColor,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = "Sleep Duration",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "${sleepMetrics.size} days tracked",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Filled.Nightlight,
+                        contentDescription = "Sleep",
+                        tint = SleepColor,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
-                
-                Text(
-                    text = String.format("%.1f h", todaySleepHours),
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = SleepColor
-                )
+                Column {
+                    Text(
+                        text = "Sleep Duration",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "${sleepMetrics.size} days tracked",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary
+                    )
+                }
+            }
+            
+            Text(
+                text = String.format("%.1f h", todaySleepHours),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = SleepColor
+            )
             }
             
             // Stats grid
@@ -144,7 +144,7 @@ private fun SleepStatItem(
     ) {
         Text(
             text = value,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = SleepColor
         )

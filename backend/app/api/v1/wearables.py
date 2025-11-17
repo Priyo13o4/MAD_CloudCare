@@ -280,6 +280,9 @@ async def import_apple_health(export: AppleHealthExport):
         raw_metrics = export.dict().get("metrics", [])
         individual_metrics = AppleHealthParser.convert_to_individual_metrics(raw_metrics)
         
+        # Extract sleep stages for aggregated data
+        sleep_stages = AppleHealthParser.extract_sleep_stages(raw_metrics)
+        
         # Use userId from export or default for testing
         patient_id = export.userId if export.userId else "test_patient_001"
         
@@ -329,12 +332,20 @@ async def import_apple_health(export: AppleHealthExport):
                 logger.info("Created test patient for iOS uploads", patient_id=patient_id)
             
             # Create new device
-            # Extract clean device name from device_type
-            device_type_name = device_info['device_type'].replace('apple_health_', '').replace('_', ' ').title()
+            # Try to get device name from pairing, otherwise use device metadata
+            device_name = device_info.get('device_name', 'Apple Device')
+            if not device_name or device_name == 'Apple Device':
+                # Check if there's a pairing with a custom device name
+                pairing = await prisma.devicepairing.find_first(
+                    where={"ios_device_id": device_info["device_id"]}
+                )
+                if pairing:
+                    device_name = pairing.device_name
+            
             device = await prisma.wearabledevice.create(
                 data={
                     "patient_id": patient_id,
-                    "name": device_type_name,
+                    "name": device_name,
                     "type": device_info["device_type"],
                     "device_id": device_info["device_id"],
                     "is_connected": device_info["is_connected"],
@@ -348,6 +359,24 @@ async def import_apple_health(export: AppleHealthExport):
             device_id=device_info["device_id"],
             metrics=individual_metrics
         )
+        
+        # Also store aggregated sleep stages in a summary document
+        if any(s > 0 for s in sleep_stages.values()):
+            mongodb = get_mongodb()
+            sleep_summary = {
+                "patient_id": patient_id,
+                "device_id": device_info["device_id"],
+                "type": "sleep_stages_summary",
+                "timestamp": datetime.utcnow(),
+                **sleep_stages,
+                "total_sleep": sum(sleep_stages.values()),
+            }
+            await mongodb.sleep_summaries.update_one(
+                {"patient_id": patient_id, "device_id": device_info["device_id"]},
+                {"$set": sleep_summary},
+                upsert=True
+            )
+            logger.info("Stored sleep stages summary", patient_id=patient_id, **sleep_stages)
         
         logger.info(
             "Imported Apple Health data",

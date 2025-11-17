@@ -319,6 +319,86 @@ class AppleHealthParser:
         }
     
     @staticmethod
+    def extract_sleep_stages(metrics: List[Dict[str, Any]]) -> Dict[str, float]:
+        """
+        Extract and calculate sleep stage durations from Apple Health metrics.
+        
+        Apple Health provides sleep samples with values like:
+        - HKCategoryValueSleepAnalysisInBed: 0
+        - HKCategoryValueSleepAnalysisAsleep: 1  
+        - HKCategoryValueSleepAnalysisCore: 2
+        - HKCategoryValueSleepAnalysisDeep: 3
+        - HKCategoryValueSleepAnalysisREM: 4
+        - HKCategoryValueSleepAnalysisLight: 5 (iOS 17.0+)
+        
+        Args:
+            metrics: List of raw Apple Health metrics
+            
+        Returns:
+            Dict with sleep stage durations in hours
+        """
+        sleep_stages = {
+            "deep_hours": 0.0,
+            "core_hours": 0.0,
+            "rem_hours": 0.0,
+            "light_hours": 0.0,
+        }
+        
+        for metric in metrics:
+            metric_type = metric.get("type")
+            
+            # Look for sleep analysis metrics
+            if metric_type not in ["HKCategoryTypeIdentifierSleepAnalysis", "sleepAnalysis", "Sleep Analysis"]:
+                continue
+            
+            value = metric.get("value")
+            if not value:
+                continue
+            
+            # Calculate duration from startDate and endDate
+            start_date = metric.get("startDate")
+            end_date = metric.get("endDate")
+            
+            if not (start_date and end_date):
+                continue
+            
+            try:
+                # Parse ISO timestamps
+                from datetime import datetime as dt
+                start = dt.fromisoformat(start_date.replace('Z', '+00:00'))
+                end = dt.fromisoformat(end_date.replace('Z', '+00:00'))
+                duration_hours = (end - start).total_seconds() / 3600.0
+                
+                # Map Apple Health sleep values to our categories
+                if isinstance(value, str):
+                    if "Deep" in value or "deep" in value or value == "3":
+                        sleep_stages["deep_hours"] += duration_hours
+                    elif "Core" in value or "core" in value or value == "2":
+                        sleep_stages["core_hours"] += duration_hours
+                    elif "REM" in value or "rem" in value or value == "4":
+                        sleep_stages["rem_hours"] += duration_hours
+                    elif "Light" in value or "light" in value or value == "5":
+                        sleep_stages["light_hours"] += duration_hours
+                elif isinstance(value, int):
+                    if value == 3:
+                        sleep_stages["deep_hours"] += duration_hours
+                    elif value == 2:
+                        sleep_stages["core_hours"] += duration_hours
+                    elif value == 4:
+                        sleep_stages["rem_hours"] += duration_hours
+                    elif value == 5:
+                        sleep_stages["light_hours"] += duration_hours
+            except Exception as e:
+                logger.debug(f"Failed to parse sleep stage metric: {e}")
+                continue
+        
+        # Round to 2 decimal places
+        sleep_stages = {k: round(v, 2) for k, v in sleep_stages.items()}
+        
+        logger.debug("Extracted sleep stages", **sleep_stages)
+        return sleep_stages
+    
+    @staticmethod
     def validate_export(data: Dict[str, Any]) -> bool:
         """
         Validate that the data is a valid Apple Health export.

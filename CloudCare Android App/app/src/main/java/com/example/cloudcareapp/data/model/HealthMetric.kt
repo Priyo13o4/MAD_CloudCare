@@ -31,6 +31,16 @@ data class MetricSummary(
 )
 
 /**
+ * Sleep stage breakdown for detailed sleep analysis
+ */
+data class SleepBreakdown(
+    val deep_hours: Double? = null,
+    val core_hours: Double? = null,
+    val rem_hours: Double? = null,
+    val light_hours: Double? = null
+)
+
+/**
  * Today's aggregated health summary
  */
 data class TodaySummary(
@@ -40,6 +50,7 @@ data class TodaySummary(
     val distance: MetricSummary?,
     val flights_climbed: MetricSummary?,
     val sleep: MetricSummary?,
+    val sleep_breakdown: SleepBreakdown? = null,
     val resting_heart_rate: MetricSummary? = null,
     val vo2_max: MetricSummary? = null
 )

@@ -64,6 +64,7 @@ import com.patrykandpatrick.vico.core.common.shape.Shape
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.absoluteValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -573,25 +574,6 @@ fun ConcentricRings(
     sleepProgress: Float,
     modifier: Modifier = Modifier
 ) {
-    val caloriesAnim = remember { Animatable(0f) }
-    val stepsAnim = remember { Animatable(0f) }
-    val sleepAnim = remember { Animatable(0f) }
-    
-    LaunchedEffect(caloriesProgress, stepsProgress, sleepProgress) {
-        caloriesAnim.animateTo(
-            targetValue = caloriesProgress.coerceIn(0f, 1f),
-            animationSpec = tween(1000, easing = FastOutSlowInEasing)
-        )
-        stepsAnim.animateTo(
-            targetValue = stepsProgress.coerceIn(0f, 1f),
-            animationSpec = tween(1000, 100, easing = FastOutSlowInEasing)
-        )
-        sleepAnim.animateTo(
-            targetValue = sleepProgress.coerceIn(0f, 1f),
-            animationSpec = tween(1000, 200, easing = FastOutSlowInEasing)
-        )
-    }
-    
     Canvas(modifier = modifier) {
         val strokeWidth = 18.dp.toPx()
         val spacing = 8.dp.toPx()
@@ -615,7 +597,7 @@ fun ConcentricRings(
                 colors = listOf(CaloriesColor, CaloriesColor.copy(alpha = 0.7f))
             ),
             startAngle = -90f,
-            sweepAngle = 360f * caloriesAnim.value,
+            sweepAngle = 360f * caloriesProgress,
             useCenter = false,
             topLeft = Offset(
                 (size.width - caloriesRadius * 2) / 2,
@@ -644,7 +626,7 @@ fun ConcentricRings(
                 colors = listOf(StepsColor, StepsColor.copy(alpha = 0.7f))
             ),
             startAngle = -90f,
-            sweepAngle = 360f * stepsAnim.value,
+            sweepAngle = 360f * stepsProgress,
             useCenter = false,
             topLeft = Offset(
                 (size.width - stepsRadius * 2) / 2,
@@ -673,7 +655,7 @@ fun ConcentricRings(
                 colors = listOf(SleepColor, SleepColor.copy(alpha = 0.7f))
             ),
             startAngle = -90f,
-            sweepAngle = 360f * sleepAnim.value,
+            sweepAngle = 360f * sleepProgress,
             useCenter = false,
             topLeft = Offset(
                 (size.width - sleepRadius * 2) / 2,
@@ -1250,21 +1232,26 @@ fun DateRangeSelector(
     val ranges = listOf(1 to "1D", 7 to "7D", 30 to "30D", 365 to "1Y")
     
     Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         ranges.forEach { (days, label) ->
-            Surface(
-                modifier = Modifier,
-                shape = RoundedCornerShape(12.dp),
-                color = if (selectedDays == days) Primary else SurfaceVariant,
-                onClick = { onRangeSelected(days) }
+            Button(
+                onClick = { onRangeSelected(days) },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .padding(horizontal = 4.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (selectedDays == days) Primary else SurfaceVariant,
+                    contentColor = if (selectedDays == days) Color.White else TextSecondary
+                )
             ) {
                 Text(
                     text = label,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (selectedDays == days) Color.White else TextSecondary,
                     fontWeight = if (selectedDays == days) FontWeight.SemiBold else FontWeight.Normal
                 )
             }
@@ -1403,11 +1390,24 @@ fun WeeklyMetricCard(
                                 .height(180.dp)
                         )
                     }
-                    "Heart Rate", "Sleep" -> {
-                        // Use centered bar chart with min/max for heart rate and sleep
+                    "Heart Rate" -> {
+                        // Use centered bar chart with min/max for heart rate
                         val rangeData = dataPoints.map { (it.min) to (it.max) }
                         val avgValue = dataPoints.map { it.avg }.average()
                         AppleHealthHeartRateChart(
+                            data = rangeData,
+                            highlightValue = avgValue,
+                            chartKey = "trends_${title}_${dataPoints.size}",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                        )
+                    }
+                    "Sleep" -> {
+                        // Use sleep-specific chart for sleep hours
+                        val rangeData = dataPoints.map { (it.min) to (it.max) }
+                        val avgValue = dataPoints.map { it.avg }.average()
+                        AppleHealthSleepChart(
                             data = rangeData,
                             highlightValue = avgValue,
                             chartKey = "trends_${title}_${dataPoints.size}",
@@ -1675,29 +1675,12 @@ fun AppleHealthBarChart(
     data: List<Double>,
     barColor: Color,
     modifier: Modifier = Modifier,
-    chartKey: String = "bar_chart_${data.hashCode()}" // Unique key per instance
+    chartKey: String = "bar_chart_${data.hashCode()}"
 ) {
     if (data.isEmpty()) return
     
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
-    var hasAnimated by rememberSaveable(key = chartKey) { mutableStateOf(false) }
     val maxValue = data.maxOrNull() ?: 1.0
-    
-    // Create animatable values that only animate once
-    val animatedValues = remember(data) {
-        data.map { Animatable(0f) }
-    }
-    
-    LaunchedEffect(Unit) {
-        if (!hasAnimated && animatedValues.isNotEmpty()) {
-            animatedValues.forEachIndexed { _, animatable ->
-                launch {
-                    animatable.animateTo(1f, animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing))
-                }
-            }
-            hasAnimated = true
-        }
-    }
     
     Box(modifier = modifier) {
         Canvas(
@@ -1711,7 +1694,6 @@ fun AppleHealthBarChart(
                         val totalSpacing = spacing * (barCount - 1)
                         val barWidth = (size.width - totalSpacing) / barCount
                         
-                        // Find which bar was tapped
                         val tappedIndex = ((offset.x) / (barWidth + spacing)).toInt()
                         selectedIndex = if (tappedIndex in data.indices) tappedIndex else null
                     }
@@ -1725,9 +1707,9 @@ fun AppleHealthBarChart(
             
             // Draw bars with Apple Health style
             data.forEachIndexed { index, value ->
-                val animatedHeight = animatedValues[index].value * (value / maxValue).toFloat()
+                val normalizedHeight = (value / maxValue).toFloat()
                 val x = index * (barWidth + spacing)
-                val barHeight = maxHeight * animatedHeight
+                val barHeight = maxHeight * normalizedHeight
                 val y = maxHeight - barHeight
                 
                 // Rounded top rectangle
@@ -1755,7 +1737,7 @@ fun AppleHealthBarChart(
             }
         }
         
-        // Show value overlay when bar is selected - CENTERED ABOVE THE BAR
+        // Show value overlay when bar is selected
         selectedIndex?.let { index ->
             if (index in data.indices) {
                 val value = data[index].toInt()
@@ -1781,19 +1763,18 @@ fun AppleHealthBarChart(
 }
 
 /**
- * Apple Health style heart rate chart - centered bar chart with average as midpoint
+ * Apple Health style sleep chart - centered bar chart showing sleep hours with min/max range
  */
 @Composable
-fun AppleHealthHeartRateChart(
-    data: List<Pair<Double, Double>>, // List of (min, max) pairs
+fun AppleHealthSleepChart(
+    data: List<Pair<Double, Double>>, // List of (min, max) pairs in hours
     highlightValue: Double,
     modifier: Modifier = Modifier,
-    chartKey: String = "heart_chart_${data.hashCode()}" // Unique key per instance
+    chartKey: String = "sleep_chart_${data.hashCode()}"
 ) {
     if (data.isEmpty()) return
     
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
-    var hasAnimated by rememberSaveable(key = chartKey) { mutableStateOf(false) }
     
     // Calculate averages - this is the center line
     val averages = data.map { (min, max) -> (min + max) / 2.0 }
@@ -1802,21 +1783,152 @@ fun AppleHealthHeartRateChart(
     val globalMax = data.maxOf { it.second }
     val range = (globalMax - globalMin).coerceAtLeast(1.0)
     
-    // Create animatable values for each bar - animate from center
-    val animatedRanges = remember(data) {
-        data.map { Animatable(0f) }
-    }
-    
-    LaunchedEffect(Unit) {
-        if (!hasAnimated && animatedRanges.isNotEmpty()) {
-            animatedRanges.forEachIndexed { _, animatable ->
-                launch {
-                    animatable.animateTo(1f, animationSpec = tween(durationMillis = 800, easing = FastOutSlowInEasing))
+    Box(modifier = modifier) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp, vertical = 16.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures { offset ->
+                        val barCount = data.size
+                        val spacing = 16.dp.toPx()
+                        val totalSpacing = spacing * (barCount - 1)
+                        val barWidth = ((size.width - totalSpacing) / barCount).coerceAtMost(40.dp.toPx())
+                        val actualTotalWidth = barWidth * barCount + totalSpacing
+                        val startX = (size.width - actualTotalWidth) / 2
+                        
+                        val tappedIndex = ((offset.x - startX) / (barWidth + spacing)).toInt()
+                        selectedIndex = if (tappedIndex in data.indices) tappedIndex else null
+                    }
+                }
+        ) {
+            val barCount = data.size
+            val spacing = 16.dp.toPx()
+            val totalSpacing = spacing * (barCount - 1)
+            val barWidth = ((size.width - totalSpacing) / barCount).coerceAtMost(40.dp.toPx())
+            val actualTotalWidth = barWidth * barCount + totalSpacing
+            val startX = (size.width - actualTotalWidth) / 2
+            val maxHeight = size.height
+            val centerY = maxHeight / 2
+            
+            // Draw center line (average)
+            drawLine(
+                color = SleepColor.copy(alpha = 0.2f),
+                start = Offset(0f, centerY),
+                end = Offset(size.width, centerY),
+                strokeWidth = 1.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 5f))
+            )
+            
+            data.forEachIndexed { index, (min, max) ->
+                val x = startX + index * (barWidth + spacing) + barWidth / 2
+                val avg = (min + max) / 2.0
+                
+                // Calculate positions based on center line (no animation)
+                val minY = centerY - ((min - globalAvg) / range * maxHeight * 0.45f).toFloat()
+                val maxY = centerY - ((max - globalAvg) / range * maxHeight * 0.45f).toFloat()
+                val avgY = centerY - ((avg - globalAvg) / range * maxHeight * 0.45f).toFloat()
+                
+                val isSelected = selectedIndex == index
+                val barColor = if (isSelected) SleepColor else SleepColor.copy(alpha = 0.7f)
+                
+                // Draw vertical range bar (thicker)
+                drawLine(
+                    color = barColor,
+                    start = Offset(x, maxY),
+                    end = Offset(x, minY),
+                    strokeWidth = barWidth * 0.6f,
+                    cap = StrokeCap.Round
+                )
+                
+                // Draw min dot
+                drawCircle(
+                    color = barColor,
+                    radius = 3.dp.toPx(),
+                    center = Offset(x, minY)
+                )
+                
+                // Draw max dot
+                drawCircle(
+                    color = barColor,
+                    radius = 3.dp.toPx(),
+                    center = Offset(x, maxY)
+                )
+                
+                // Draw average dot (center)
+                drawCircle(
+                    color = barColor,
+                    radius = 4.dp.toPx(),
+                    center = Offset(x, avgY)
+                )
+                
+                // Highlight the latest value if it's the last bar
+                if (index == data.size - 1) {
+                    val highlightY = centerY - ((highlightValue - globalAvg) / range * maxHeight * 0.45f).toFloat()
+                    drawCircle(
+                        color = SleepColor,
+                        radius = 5.dp.toPx(),
+                        center = Offset(x, highlightY)
+                    )
+                    // Outer ring
+                    drawCircle(
+                        color = SleepColor,
+                        radius = 6.dp.toPx(),
+                        center = Offset(x, highlightY),
+                        style = Stroke(width = 1.5.dp.toPx())
+                    )
                 }
             }
-            hasAnimated = true
+        }
+        
+        // Show value overlay when bar is selected
+        selectedIndex?.let { index ->
+            if (index in data.indices) {
+                val (min, max) = data[index]
+                val avg = (min + max) / 2.0
+                val value = String.format("%.1f", avg)
+                
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 8.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = SleepColor,
+                    shadowElevation = 4.dp
+                ) {
+                    Text(
+                        text = "$value hrs (${String.format("%.1f", min)}-${String.format("%.1f", max)})",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
     }
+}
+
+/**
+ * Apple Health style heart rate chart - centered bar chart with average as midpoint
+ */
+@Composable
+fun AppleHealthHeartRateChart(
+    data: List<Pair<Double, Double>>, // List of (min, max) pairs
+    highlightValue: Double,
+    modifier: Modifier = Modifier,
+    chartKey: String = "heart_chart_${data.hashCode()}"
+) {
+    if (data.isEmpty()) return
+    
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+    
+    // Calculate averages - this is the center line
+    val averages = data.map { (min, max) -> (min + max) / 2.0 }
+    val globalAvg = averages.average()
+    val globalMin = data.minOf { it.first }
+    val globalMax = data.maxOf { it.second }
+    val range = (globalMax - globalMin).coerceAtLeast(1.0)
     
     Box(modifier = modifier) {
         Canvas(
@@ -1858,14 +1970,10 @@ fun AppleHealthHeartRateChart(
             data.forEachIndexed { index, (min, max) ->
                 val x = startX + index * (barWidth + spacing) + barWidth / 2
                 val avg = (min + max) / 2.0
-                val animationProgress = animatedRanges[index].value
                 
-                // Calculate positions based on center line
-                val currentMin = globalAvg + (min - globalAvg) * animationProgress
-                val currentMax = globalAvg + (max - globalAvg) * animationProgress
-                
-                val minY = centerY - ((currentMin - globalAvg) / range * maxHeight * 0.45f).toFloat()
-                val maxY = centerY - ((currentMax - globalAvg) / range * maxHeight * 0.45f).toFloat()
+                // Calculate positions based on center line (no animation)
+                val minY = centerY - ((min - globalAvg) / range * maxHeight * 0.45f).toFloat()
+                val maxY = centerY - ((max - globalAvg) / range * maxHeight * 0.45f).toFloat()
                 val avgY = centerY - ((avg - globalAvg) / range * maxHeight * 0.45f).toFloat()
                 
                 val isSelected = selectedIndex == index
@@ -1920,7 +2028,7 @@ fun AppleHealthHeartRateChart(
             }
         }
         
-        // Show value overlay when bar is selected - CENTERED ABOVE THE BAR
+        // Show value overlay when bar is selected
         selectedIndex?.let { index ->
             if (index in data.indices) {
                 val (min, max) = data[index]
