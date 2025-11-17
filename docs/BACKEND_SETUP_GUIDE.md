@@ -57,7 +57,7 @@ This guide provides a complete blueprint for setting up the CloudCare backend in
 ┌───────▼──────┐ ┌──▼─────────┐ ┌▼──────────────┐
 │   Auth       │ │  Wearables │ │   Medical     │
 │   Service    │ │  Service   │ │   Records     │
-│  (Flask)     │ │  (Flask)   │ │   Service     │
+│  (FastAPI)   │ │  (FastAPI) │ │   Service     │
 │              │ │            │ │   (Flask)     │
 └───────┬──────┘ └──┬─────────┘ └┬──────────────┘
         │            │             │
@@ -94,8 +94,7 @@ This guide provides a complete blueprint for setting up the CloudCare backend in
 ## Technology Stack
 
 ### Backend Framework
-- **Primary**: Flask (Python 3.11+)
-- **Alternative**: FastAPI (for high-performance endpoints)
+- **Primary**: FastAPI (Python 3.11+)
 - **API Standard**: RESTful with OpenAPI/Swagger documentation
 
 ### Databases

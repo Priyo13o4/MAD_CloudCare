@@ -6,7 +6,7 @@ Handles wearable device management and health data sync.
 
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 import structlog
 
@@ -68,7 +68,7 @@ async def register_device(
     
     try:
         # Check if device already exists
-        existing = await prisma.wearabledevice.find_unique(where={"deviceId": device.device_id})
+        existing = await prisma.wearabledevice.find_unique(where={"device_id": device.device_id})
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -78,11 +78,11 @@ async def register_device(
         # Create device
         new_device = await prisma.wearabledevice.create(
             data={
-                "patientId": patient_id,
+                "patient_id": patient_id,
                 "name": device.name,
                 "type": device.type,
-                "deviceId": device.device_id,
-                "isConnected": True,
+                "device_id": device.device_id,
+                "is_connected": True,
             }
         )
         
@@ -107,8 +107,8 @@ async def get_devices(patient_id: str = Depends(get_current_patient_id)):
     prisma = get_prisma()
     
     devices = await prisma.wearabledevice.find_many(
-        where={"patientId": patient_id},
-        order={"createdAt": "desc"}
+        where={"patient_id": patient_id},
+        order={"created_at": "desc"}
     )
     
     return [WearableDeviceResponse.model_validate(d) for d in devices]
@@ -286,7 +286,7 @@ async def import_apple_health(export: AppleHealthExport):
         # Register or update device (no patient ID constraint for now)
         prisma = get_prisma()
         device = await prisma.wearabledevice.find_unique(
-            where={"deviceId": device_info["device_id"]}
+            where={"device_id": device_info["device_id"]}
         )
         
         if not device:
@@ -304,7 +304,8 @@ async def import_apple_health(export: AppleHealthExport):
                     test_user = await prisma.user.create(
                         data={
                             "email": test_email,
-                            "passwordHash": "test_hash_not_used",
+                            "password_hash": "test_hash_not_used",
+                            "is_active": True,
                             "role": "PATIENT",
                         }
                     )
@@ -313,28 +314,30 @@ async def import_apple_health(export: AppleHealthExport):
                 test_patient = await prisma.patient.create(
                     data={
                         "id": patient_id,
-                        "userId": test_user.id,
-                        "aadharUid": f"test_uid_{patient_id[:8]}",
+                        "user_id": test_user.id,
+                        "aadhar_uid": f"test_uid_{patient_id[:8]}",
                         "name": "iOS App User",
                         "age": 0,
                         "gender": "Not specified",
-                        "bloodType": "Unknown",
+                        "blood_type": "Unknown",
                         "contact": "+910000000000",
                         "email": test_email,
                         "address": "iOS App",
-                        "familyContact": "+910000000000",
+                        "family_contact": "+910000000000",
                     }
                 )
                 logger.info("Created test patient for iOS uploads", patient_id=patient_id)
             
             # Create new device
+            # Extract clean device name from device_type
+            device_type_name = device_info['device_type'].replace('apple_health_', '').replace('_', ' ').title()
             device = await prisma.wearabledevice.create(
                 data={
-                    "patientId": patient_id,
-                    "name": f"Apple {device_info['device_type'].replace('_', ' ').title()}",
+                    "patient_id": patient_id,
+                    "name": device_type_name,
                     "type": device_info["device_type"],
-                    "deviceId": device_info["device_id"],
-                    "isConnected": device_info["is_connected"],
+                    "device_id": device_info["device_id"],
+                    "is_connected": device_info["is_connected"],
                 }
             )
             logger.info("Registered new Apple device", device_id=device_info["device_id"])
@@ -483,7 +486,7 @@ async def pair_ios_device(pairing: DevicePairingRequest):
         
         # Check if iOS device is already registered
         ios_device = await prisma.wearabledevice.find_unique(
-            where={"deviceId": pairing.deviceId}
+            where={"device_id": pairing.ios_device_id}
         )
         
         if not ios_device:
@@ -495,8 +498,8 @@ async def pair_ios_device(pairing: DevicePairingRequest):
         # Check if pairing already exists
         existing_pairing = await prisma.devicepairing.find_first(
             where={
-                "iosDeviceId": pairing.deviceId,
-                "androidUserId": pairing.androidUserId
+                "ios_device_id": pairing.ios_device_id,
+                "android_user_id": pairing.android_user_id
             }
         )
         
@@ -505,57 +508,77 @@ async def pair_ios_device(pairing: DevicePairingRequest):
             updated_pairing = await prisma.devicepairing.update(
                 where={"id": existing_pairing.id},
                 data={
-                    "isActive": True,
-                    "pairingCode": pairing.pairingCode,
-                    "deviceName": pairing.deviceName,
-                    "deviceType": pairing.deviceType,
+                    "is_active": True,
+                    "pairing_code": pairing.pairing_code,
+                    "device_name": pairing.device_name,
+                    "device_type": pairing.deviceType,
                 }
             )
             
             logger.info(
                 "Updated existing device pairing",
-                ios_device_id=pairing.deviceId,
-                android_user_id=pairing.androidUserId
+                ios_device_id=pairing.ios_device_id,
+                android_user_id=pairing.android_user_id
             )
             
             return DevicePairingResponse(
                 message="Device pairing updated successfully",
                 pairing_id=updated_pairing.id,
                 ios_user_id=pairing.userId,
-                ios_device_id=pairing.deviceId,
-                android_user_id=pairing.androidUserId,
-                paired_at=updated_pairing.pairedAt,
-                device_name=pairing.deviceName
+                ios_device_id=pairing.ios_device_id,
+                android_user_id=pairing.android_user_id,
+                paired_at=updated_pairing.paired_at,
+                device_name=pairing.device_name
             )
         
         # Create new pairing
         new_pairing = await prisma.devicepairing.create(
             data={
-                "iosUserId": pairing.userId,
-                "iosDeviceId": pairing.deviceId,
-                "androidUserId": pairing.androidUserId,
-                "deviceName": pairing.deviceName,
-                "deviceType": pairing.deviceType,
-                "pairingCode": pairing.pairingCode,
-                "isActive": True,
+                "ios_user_id": pairing.userId,
+                "ios_device_id": pairing.ios_device_id,
+                "android_user_id": pairing.android_user_id,
+                "device_name": pairing.device_name,
+                "device_type": pairing.deviceType,
+                "pairing_code": pairing.pairing_code,
+                "is_active": True,
             }
         )
+        
+        # Also create a WearableDevice entry for the Android user if it doesn't exist
+        # This allows the device to show up in the user's device list
+        android_device = await prisma.wearabledevice.find_first(
+            where={
+                "device_id": pairing.ios_device_id,
+                "patient_id": pairing.android_user_id
+            }
+        )
+        
+        if not android_device:
+            await prisma.wearabledevice.create(
+                data={
+                    "patient_id": pairing.android_user_id,
+                    "name": pairing.device_name,
+                    "type": pairing.deviceType,
+                    "device_id": pairing.ios_device_id,
+                    "is_connected": True,
+                }
+            )
         
         logger.info(
             "Created new device pairing",
             pairing_id=new_pairing.id,
-            ios_device_id=pairing.deviceId,
-            android_user_id=pairing.androidUserId
+            ios_device_id=pairing.ios_device_id,
+            android_user_id=pairing.android_user_id
         )
         
         return DevicePairingResponse(
             message="Device paired successfully! Health data from iOS will now be available on Android.",
             pairing_id=new_pairing.id,
             ios_user_id=pairing.userId,
-            ios_device_id=pairing.deviceId,
-            android_user_id=pairing.androidUserId,
-            paired_at=new_pairing.pairedAt,
-            device_name=pairing.deviceName
+            ios_device_id=pairing.ios_device_id,
+            android_user_id=pairing.android_user_id,
+            paired_at=new_pairing.paired_at,
+            device_name=pairing.device_name
         )
         
     except HTTPException:
@@ -568,7 +591,7 @@ async def pair_ios_device(pairing: DevicePairingRequest):
         )
 
 
-@router.get("/devices/paired", response_model=List[PairedDeviceInfo])
+@router.get("/devices/paired", response_model=List[WearableDeviceResponse])
 async def get_paired_devices(android_user_id: str):
     """
     Get all iOS devices paired with an Android user account.
@@ -576,33 +599,20 @@ async def get_paired_devices(android_user_id: str):
     **Query Parameters**:
     - android_user_id: The Android user ID to get paired devices for
     
-    **Returns**: List of paired iOS devices with sync statistics
+    **Returns**: List of paired iOS devices as WearableDeviceResponse
     """
     prisma = get_prisma()
     
     try:
-        pairings = await prisma.devicepairing.find_many(
+        # Get all wearable devices for this user
+        devices = await prisma.wearabledevice.find_many(
             where={
-                "androidUserId": android_user_id,
-                "isActive": True
+                "patient_id": android_user_id
             },
-            order={"pairedAt": "desc"}
+            order={"created_at": "desc"}
         )
         
-        return [
-            PairedDeviceInfo(
-                pairing_id=p.id,
-                ios_user_id=p.iosUserId,
-                ios_device_id=p.iosDeviceId,
-                device_name=p.deviceName,
-                device_type=p.deviceType,
-                paired_at=p.pairedAt,
-                is_active=p.isActive,
-                last_sync=p.lastSyncAt,
-                total_metrics_synced=p.totalMetrics
-            )
-            for p in pairings
-        ]
+        return [WearableDeviceResponse.model_validate(d) for d in devices]
         
     except Exception as e:
         logger.error("Failed to get paired devices", error=str(e))
@@ -632,7 +642,7 @@ async def unpair_device(pairing_id: str):
         
         await prisma.devicepairing.update(
             where={"id": pairing_id},
-            data={"isActive": False}
+            data={"is_active": False}
         )
         
         logger.info("Unpaired device", pairing_id=pairing_id)
@@ -646,3 +656,127 @@ async def unpair_device(pairing_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to unpair device"
         )
+
+
+@router.get("/metrics/aggregated")
+async def get_aggregated_metrics(
+    patient_id: str,
+    period: str = "daily",
+    days: int = 30
+):
+    """
+    Get aggregated metrics by time period.
+    
+    **Public endpoint for testing - accepts patient_id as query parameter.**
+    
+    Query Parameters:
+    - patient_id: Patient's unique ID (required)
+    - period: Aggregation period - "hourly", "daily", or "weekly" (default: daily)
+    - days: Number of days to look back (default: 30)
+    
+    Returns aggregated data grouped by metric type and time period:
+    {
+        "steps": [{"date": "2025-11-15", "total": 8523, "avg": 8523, ...}, ...],
+        "heart_rate": [{"date": "2025-11-15", "avg": 75, "min": 62, "max": 145}, ...],
+        ...
+    }
+    """
+    try:
+        metrics = await WearablesService.get_aggregated_metrics(patient_id, period, days)
+        return {
+            "patient_id": patient_id,
+            "period": period,
+            "days": days,
+            "metrics": metrics
+        }
+    except Exception as e:
+        logger.error("Failed to get aggregated metrics", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve aggregated metrics: {str(e)}"
+        )
+
+
+@router.get("/metrics/by-type")
+async def get_metrics_by_type(
+    patient_id: str,
+    metric_type: str,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    """
+    Get specific metric type over date range.
+    
+    **Public endpoint for testing - accepts patient_id as query parameter.**
+    
+    Query Parameters:
+    - patient_id: Patient's unique ID (required)
+    - metric_type: Type of metric - "heart_rate", "steps", "calories", etc. (required)
+    - start_date: Optional start date in ISO format (e.g., "2025-11-01T00:00:00Z")
+    - end_date: Optional end date in ISO format
+    
+    Returns time-series array of individual metrics:
+    [
+        {
+            "metric_type": "heart_rate",
+            "value": 85,
+            "unit": "count/min",
+            "timestamp": "2025-11-15T17:55:21.000Z",
+            ...
+        },
+        ...
+    ]
+    """
+    try:
+        metrics = await WearablesService.get_metrics_by_type(
+            patient_id, metric_type, start_date, end_date
+        )
+        return {
+            "patient_id": patient_id,
+            "metric_type": metric_type,
+            "start_date": start_date,
+            "end_date": end_date,
+            "count": len(metrics),
+            "metrics": metrics
+        }
+    except Exception as e:
+        logger.error("Failed to get metrics by type", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve metrics: {str(e)}"
+        )
+
+
+@router.get("/summary/today")
+async def get_today_summary(patient_id: str):
+    """
+    Get aggregated summary for today with comparison to yesterday.
+    
+    **Public endpoint for testing - accepts patient_id as query parameter.**
+    
+    Query Parameters:
+    - patient_id: Patient's unique ID (required)
+    
+    Returns today's aggregated metrics with percentage changes:
+    {
+        "steps": {"total": 8523, "change": "+12%"},
+        "heart_rate": {"avg": 75, "min": 62, "max": 145, "change": "-3%"},
+        "calories": {"total": 2145, "change": "+8%"},
+        "distance": {"total": 6.2, "unit": "km", "change": "+15%"},
+        ...
+    }
+    """
+    try:
+        summary = await WearablesService.get_today_summary(patient_id)
+        return {
+            "patient_id": patient_id,
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "summary": summary
+        }
+    except Exception as e:
+        logger.error("Failed to get today summary", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve today's summary: {str(e)}"
+        )
+

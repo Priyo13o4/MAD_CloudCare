@@ -5,7 +5,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Android-green.svg)](https://developer.android.com/)
 [![Language](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org/)
 [![Framework](https://img.shields.io/badge/Framework-Jetpack%20Compose-brightgreen.svg)](https://developer.android.com/jetpack/compose)
-[![Backend](https://img.shields.io/badge/Backend-Flask-lightgrey.svg)](https://flask.palletsprojects.com/)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI-lightgrey.svg)](https://fastapi.tiangolo.com/)
 
 ---
 
@@ -183,14 +183,14 @@ MVVM (Model-View-ViewModel)
 
 ### Backend Architecture
 ```
-Microservices Architecture
+Monolithic FastAPI Application
 ├── API Gateway (NGINX)
-├── Auth Service (Flask)
-├── Wearables Service (Flask)
-├── Medical Records Service (Flask)
-├── Consent Service (Flask)
-├── Notification Service (Flask)
-└── Document Request Service (Flask)
+├── Auth Module (FastAPI)
+├── Wearables Module (FastAPI)
+├── Medical Records Module (FastAPI)
+├── Consent Module (FastAPI)
+├── Notification Module (FastAPI)
+└── Document Request Module (FastAPI)
 ```
 
 ### Database Architecture
@@ -290,7 +290,7 @@ Comprehensive documentation is available in the following files:
 
 ### Backend
 
-| Component | Technology | Version |
+| Framework | Technology | Version |
 |-----------|-----------|---------|
 | Framework | FastAPI | 3.0.0 |
 | Language | Python | 3.11+ |

@@ -360,9 +360,7 @@ fun CloudCareApp() {
             
             composable(Screen.Wearables.route) {
                 WearablesScreen(
-                    onBackClick = {
-                        navController.popBackStack()
-                    }
+                    navController = navController
                 )
             }
             

@@ -67,6 +67,24 @@ dependencies {
     // Coil for image loading
     implementation(libs.coil.compose)
     
+    // Networking - Retrofit, Gson, OkHttp
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("com.google.code.gson:gson:2.10.1")
+    
+    // Vico Charts - Professional charts library
+    implementation("com.patrykandpatrick.vico:compose:2.0.0-alpha.28")
+    implementation("com.patrykandpatrick.vico:compose-m3:2.0.0-alpha.28")
+    implementation("com.patrykandpatrick.vico:core:2.0.0-alpha.28")
+    
+    // ML Kit for QR code scanning
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
+    implementation("androidx.camera:camera-camera2:1.3.1")
+    implementation("androidx.camera:camera-lifecycle:1.3.1")
+    implementation("androidx.camera:camera-view:1.3.1")
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

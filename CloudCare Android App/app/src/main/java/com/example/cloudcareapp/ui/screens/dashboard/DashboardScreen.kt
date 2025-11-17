@@ -35,6 +35,10 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val isSyncing by viewModel.isSyncing.collectAsState()
+    
+    // Format last sync time for display
+    val formattedLastSync = com.example.cloudcareapp.data.cache.AppDataCache.getFormattedLastSyncTime()
     
     when (val state = uiState) {
         is DashboardUiState.Loading -> {
@@ -50,12 +54,18 @@ fun DashboardScreen(
                 patient = state.patient,
                 stats = state.stats,
                 activities = state.recentActivities,
+                healthSummary = state.healthSummary,
+                isUsingRealData = state.isUsingRealData,
+                errorMessage = state.errorMessage,
                 onNavigateToWearables = onNavigateToWearables,
                 onNavigateToRecords = onNavigateToRecords,
                 onNavigateToFacilities = onNavigateToFacilities,
                 onNavigateToProfile = onNavigateToProfile,
                 onNavigateToConsents = onNavigateToConsents,
-                onNavigateToDevices = onNavigateToDevices
+                onNavigateToDevices = onNavigateToDevices,
+                onRefresh = { viewModel.refresh() },
+                lastSyncTime = formattedLastSync,
+                isSyncing = isSyncing
             )
         }
         is DashboardUiState.Error -> {
@@ -74,12 +84,18 @@ fun DashboardContent(
     patient: Patient,
     stats: DashboardStats,
     activities: List<Activity>,
+    healthSummary: HealthSummary?,
+    isUsingRealData: Boolean,
+    errorMessage: String?,
     onNavigateToWearables: () -> Unit,
     onNavigateToRecords: () -> Unit,
     onNavigateToFacilities: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToConsents: () -> Unit = {},
-    onNavigateToDevices: () -> Unit = onNavigateToWearables
+    onNavigateToDevices: () -> Unit = onNavigateToWearables,
+    onRefresh: () -> Unit = {},
+    lastSyncTime: String = "Never",
+    isSyncing: Boolean = false
 ) {
     LazyColumn(
         modifier = Modifier
@@ -91,6 +107,21 @@ fun DashboardContent(
         // Welcome Card
         item {
             WelcomeCard(patientName = patient.name)
+        }
+        
+        // Health Summary Card (Real Data from Backend)
+        if (healthSummary != null) {
+            item {
+                HealthSummaryCard(
+                    healthSummary = healthSummary,
+                    isUsingRealData = isUsingRealData,
+                    errorMessage = errorMessage,
+                    onNavigateToWearables = onNavigateToWearables,
+                    onRefresh = onRefresh,
+                    lastSyncTime = lastSyncTime,
+                    isSyncing = isSyncing
+                )
+            }
         }
         
         // Stats Grid
@@ -213,7 +244,7 @@ fun WelcomeCard(patientName: String) {
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Last sync: Just now",
+                        text = "Stay healthy and active every day",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         color = Color.White
@@ -500,6 +531,243 @@ fun QuickActionCard(
                     color = TextSecondary,
                     maxLines = 2,
                     lineHeight = MaterialTheme.typography.bodySmall.lineHeight
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Health Summary Card - Displays real-time health metrics from backend
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HealthSummaryCard(
+    healthSummary: HealthSummary,
+    isUsingRealData: Boolean,
+    errorMessage: String?,
+    onNavigateToWearables: () -> Unit,
+    onRefresh: () -> Unit = {},
+    lastSyncTime: String = "Never",
+    isSyncing: Boolean = false
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        ),
+        onClick = onNavigateToWearables
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp)
+        ) {
+            // Header with sync button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Today's Health Summary",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                
+                // Sync Button
+                IconButton(
+                    onClick = { onRefresh() },
+                    enabled = !isSyncing,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    if (isSyncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = Primary
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.Refresh,
+                            contentDescription = "Sync Data",
+                            tint = Primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+            
+            // Last sync time
+            if (lastSyncTime.isNotEmpty() && lastSyncTime != "Never") {
+                Text(
+                    text = "Last synced: $lastSyncTime",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Steps
+                HealthMetricItem(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Outlined.DirectionsWalk,
+                    label = "Steps",
+                    value = healthSummary.steps.toString(),
+                    change = healthSummary.stepsChange,
+                    iconTint = Primary
+                )
+                
+                // Heart Rate
+                HealthMetricItem(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Outlined.FavoriteBorder,
+                    label = "Heart Rate",
+                    value = "${healthSummary.heartRate} bpm",
+                    change = null,
+                    subtitle = healthSummary.heartRateStatus,
+                    iconTint = Color(0xFFE91E63)
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Calories
+                HealthMetricItem(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Outlined.LocalFireDepartment,
+                    label = "Calories",
+                    value = healthSummary.calories.toString(),
+                    change = null,
+                    subtitle = "${healthSummary.caloriesPercentage}% of goal",
+                    iconTint = Color(0xFFFF9800)
+                )
+                
+                // Sleep
+                HealthMetricItem(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Outlined.Bedtime,
+                    label = "Sleep",
+                    value = if (healthSummary.sleepHours > 0) "${String.format("%.1f", healthSummary.sleepHours)}h" else "No data",
+                    change = if (healthSummary.sleepHours > 0) healthSummary.sleepChange else null,
+                    iconTint = Color(0xFF9C27B0)
+                )
+            }
+            
+            // Error message if using fallback data
+            if (!isUsingRealData && errorMessage != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFFFF3E0)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = null,
+                            tint = Color(0xFFFF9800),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = errorMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFE65100)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HealthMetricItem(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    label: String,
+    value: String,
+    change: Int?,
+    subtitle: String? = null,
+    iconTint: Color = Primary
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Background
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 0.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(20.dp)
+            )
+            
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+            
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = TextSecondary
+            )
+            
+            // Show change percentage or subtitle
+            if (change != null && change != 0) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (change > 0) Icons.Filled.TrendingUp else Icons.Filled.TrendingDown,
+                        contentDescription = null,
+                        tint = if (change > 0) Color(0xFF4CAF50) else Color(0xFFF44336),
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Text(
+                        text = "${if (change > 0) "+" else ""}$change%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (change > 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+                    )
+                }
+            } else if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary
                 )
             }
         }

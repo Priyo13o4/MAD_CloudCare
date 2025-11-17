@@ -34,8 +34,8 @@ This document provides visual representations of the CloudCare system architectu
         │                     │                     │
 ┌───────▼──────────┐  ┌──────▼─────────┐  ┌───────▼────────┐
 │  Auth Service    │  │ Wearables      │  │  Records       │
-│  (Flask)         │  │ Service        │  │  Service       │
-│                  │  │ (Flask)        │  │  (Flask)       │
+│  (FastAPI)       │  │ Service        │  │  Service       │
+│                  │  │ (FastAPI)      │  │  (FastAPI)     │
 │ • Login/Logout   │  │ • Data Sync    │  │ • Upload       │
 │ • Registration   │  │ • Devices      │  │ • Download     │
 │ • JWT Tokens     │  │ • Real-time    │  │ • Sharing      │
@@ -46,8 +46,7 @@ This document provides visual representations of the CloudCare system architectu
 ┌───────▼──────────┐  ┌──────▼─────────┐  ┌───────▼────────┐
 │  Consent         │  │ Notification   │  │  Document      │
 │  Service         │  │ Service        │  │  Request       │
-│  (Flask)         │  │ (Flask)        │  │  Service       │
-│                  │  │                │  │  (Flask)       │
+│  (FastAPI)       │  │ (FastAPI)      │  │  Service       │
 │ • Approve/Deny   │  │ • Push Notif   │  │ • Request      │
 │ • Revoke         │  │ • Emails       │  │ • Fulfill      │
 │ • History        │  │ • SMS          │  │ • Track        │
@@ -358,7 +357,7 @@ This document provides visual representations of the CloudCare system architectu
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│          Wearables Service (Flask)                          │
+│          Wearables Service (FastAPI)                         │
 │                                                              │
 │  1. Validates patient and device                           │
 │  2. Checks for anomalies (alert triggers)                  │

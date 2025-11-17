@@ -17,11 +17,11 @@ datasource db {
 model User {
   id            String   @id @default(uuid())
   email         String   @unique
-  passwordHash  String   @map("password_hash")
+  password_hash String
   role          UserRole
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
 
   // Relations
   patient  Patient?
@@ -43,36 +43,36 @@ enum UserRole {
 // ==================== Patient Models ====================
 
 model Patient {
-  id                String   @id @default(uuid())
-  userId            String   @unique @map("user_id")
-  aadharUid         String   @unique @map("aadhar_uid") // Derived from Aadhar
-  name              String
-  age               Int
-  gender            String
-  bloodType         String   @map("blood_type")
-  contact           String
-  email             String
-  address           String
-  familyContact     String   @map("family_contact")
-  insuranceProvider String?  @map("insurance_provider")
-  insuranceId       String?  @map("insurance_id")
-  emergency         Boolean  @default(false)
-  occupation        String?
-  aiAnalysis        String?  @map("ai_analysis")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid())
+  user_id            String   @unique
+  aadhar_uid         String   @unique // Derived from Aadhar
+  name               String
+  age                Int
+  gender             String
+  blood_type         String
+  contact            String
+  email              String
+  address            String
+  family_contact     String
+  insurance_provider String?
+  insurance_id       String?
+  emergency          Boolean  @default(false)
+  occupation         String?
+  ai_analysis        String?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
 
   // Relations
-  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  medicalRecords     MedicalRecord[]
+  user               User                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  medical_records    MedicalRecord[]
   activities         Activity[]
   consents           Consent[]
-  wearableDevices    WearableDevice[]
-  documentRequests   DocumentRequest[]
-  emergencyAlerts    EmergencyAlert[]
+  wearable_devices   WearableDevice[]
+  document_requests  DocumentRequest[]
+  emergency_alerts   EmergencyAlert[]
   appointments       Appointment[]
-  assignedToDoctors  DoctorPatient[]
-  emergencyCases     EmergencyCase[]
+  assigned_to_doctors DoctorPatient[]
+  emergency_cases    EmergencyCase[]
 
   @@map("patients")
 }
@@ -379,40 +379,40 @@ enum RecordType {
 // ==================== Wearable Devices ====================
 
 model WearableDevice {
-  id              String   @id @default(uuid())
-  patientId       String   @map("patient_id")
-  name            String
-  type            String
-  deviceId        String   @unique @map("device_id") // External device ID
-  isConnected     Boolean  @default(false) @map("is_connected")
-  batteryLevel    Int      @default(100) @map("battery_level")
-  lastSyncTime    DateTime? @map("last_sync_time")
-  dataPointsSynced Int     @default(0) @map("data_points_synced")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                 String    @id @default(uuid())
+  patient_id         String
+  name               String
+  type               String
+  device_id          String    @unique // External device ID
+  is_connected       Boolean   @default(false)
+  battery_level      Int       @default(100)
+  last_sync_time     DateTime?
+  data_points_synced Int       @default(0)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
 
   // Relations
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patient_id], references: [id], onDelete: Cascade)
 
   @@map("wearable_devices")
 }
 
 model DevicePairing {
-  id              String   @id @default(uuid())
-  iosUserId       String   @map("ios_user_id") // iOS CloudSync app user ID
-  iosDeviceId     String   @map("ios_device_id") // Apple device identifier
-  androidUserId   String   @map("android_user_id") // Android user ID
-  deviceName      String   @map("device_name")
-  deviceType      String   @map("device_type")
-  pairingCode     String   @map("pairing_code")
-  pairedAt        DateTime @default(now()) @map("paired_at")
-  isActive        Boolean  @default(true) @map("is_active")
-  lastSyncAt      DateTime? @map("last_sync_at")
-  totalMetrics    Int      @default(0) @map("total_metrics")
+  id              String    @id @default(uuid())
+  ios_user_id     String    // iOS CloudSync app user ID
+  ios_device_id   String    // Apple device identifier
+  android_user_id String    // Android user ID
+  device_name     String
+  device_type     String
+  pairing_code    String
+  paired_at       DateTime  @default(now())
+  is_active       Boolean   @default(true)
+  last_sync_at    DateTime?
+  total_metrics   Int       @default(0)
 
-  @@unique([iosDeviceId, androidUserId])
-  @@index([androidUserId])
-  @@index([iosDeviceId])
+  @@unique([ios_device_id, android_user_id])
+  @@index([android_user_id])
+  @@index([ios_device_id])
   @@map("device_pairings")
 }
 

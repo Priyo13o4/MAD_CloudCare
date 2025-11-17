@@ -278,13 +278,13 @@ class WearablesService:
         prisma = get_prisma()
         
         try:
-            device = await prisma.wearabledevice.find_unique(where={"deviceId": device_id})
+            device = await prisma.wearabledevice.find_unique(where={"device_id": device_id})
             if device:
                 await prisma.wearabledevice.update(
-                    where={"deviceId": device_id},
+                    where={"device_id": device_id},
                     data={
-                        "lastSyncTime": datetime.utcnow(),
-                        "dataPointsSynced": device.dataPointsSynced + 1,
+                        "last_sync_time": datetime.utcnow(),
+                        "data_points_synced": device.data_points_synced + 1,
                     }
                 )
         except Exception as e:
@@ -424,3 +424,281 @@ class WearablesService:
                 logger.warning("Health alert created", patient_id=patient_id, alert_type=alert["alertType"])
             except Exception as e:
                 logger.error("Failed to create alert", error=str(e))
+    
+    @staticmethod
+    async def get_aggregated_metrics(patient_id: str, period: str = "daily", days: int = 30) -> Dict[str, Any]:
+        """
+        Get aggregated metrics by time period using MongoDB aggregation.
+        
+        Args:
+            patient_id: Patient's unique ID
+            period: Aggregation period - "hourly", "daily", or "weekly"
+            days: Number of days to look back
+            
+        Returns:
+            Dict with aggregated metrics by type
+        """
+        mongodb = get_mongodb()
+        
+        since = datetime.utcnow() - timedelta(days=days)
+        
+        # Define date grouping based on period
+        if period == "hourly":
+            date_format = "%Y-%m-%d %H:00"
+        elif period == "weekly":
+            date_format = "%Y-W%U"  # Year-Week format
+        else:  # daily
+            date_format = "%Y-%m-%d"
+        
+        # Aggregation pipeline
+        pipeline = [
+            {
+                "$match": {
+                    "patient_id": patient_id,
+                    "timestamp": {"$gte": since}
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "date": {"$dateToString": {"format": date_format, "date": "$timestamp"}},
+                        "metric_type": "$metric_type"
+                    },
+                    "total": {"$sum": "$value"},
+                    "avg": {"$avg": "$value"},
+                    "min": {"$min": "$value"},
+                    "max": {"$max": "$value"},
+                    "count": {"$sum": 1}
+                }
+            },
+            {
+                "$sort": {"_id.date": 1}
+            }
+        ]
+        
+        cursor = mongodb.health_metrics.aggregate(pipeline)
+        results = await cursor.to_list(length=10000)
+        
+        # Organize results by metric type
+        aggregated = {}
+        for item in results:
+            metric_type = item["_id"]["metric_type"]
+            date = item["_id"]["date"]
+            
+            if metric_type not in aggregated:
+                aggregated[metric_type] = []
+            
+            aggregated[metric_type].append({
+                "date": date,
+                "total": round(item["total"], 2),
+                "avg": round(item["avg"], 2),
+                "min": round(item["min"], 2),
+                "max": round(item["max"], 2),
+                "count": item["count"]
+            })
+        
+        logger.info(
+            "Aggregated metrics",
+            patient_id=patient_id,
+            period=period,
+            days=days,
+            metric_types=len(aggregated)
+        )
+        
+        return aggregated
+    
+    @staticmethod
+    async def get_metrics_by_type(
+        patient_id: str,
+        metric_type: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get specific metric type over date range.
+        
+        Args:
+            patient_id: Patient's unique ID
+            metric_type: Type of metric (heart_rate, steps, etc.)
+            start_date: Optional start date (ISO format)
+            end_date: Optional end date (ISO format)
+            
+        Returns:
+            List of metrics sorted by timestamp
+        """
+        mongodb = get_mongodb()
+        
+        # Build query
+        query = {
+            "patient_id": patient_id,
+            "metric_type": metric_type
+        }
+        
+        # Add date filters if provided
+        if start_date or end_date:
+            query["timestamp"] = {}
+            if start_date:
+                query["timestamp"]["$gte"] = parse_date(start_date)
+            if end_date:
+                query["timestamp"]["$lte"] = parse_date(end_date)
+        
+        cursor = mongodb.health_metrics.find(query).sort("timestamp", 1)
+        metrics = await cursor.to_list(length=10000)
+        
+        # Convert ObjectId to string
+        for metric in metrics:
+            metric["_id"] = str(metric["_id"])
+        
+        logger.info(
+            "Retrieved metrics by type",
+            patient_id=patient_id,
+            metric_type=metric_type,
+            count=len(metrics)
+        )
+        
+        return metrics
+    
+    @staticmethod
+    async def get_today_summary(patient_id: str) -> Dict[str, Any]:
+        """
+        Get aggregated summary for today with comparison to yesterday.
+        
+        Args:
+            patient_id: Patient's unique ID
+            
+        Returns:
+            Dict with today's totals and percentage changes
+        """
+        mongodb = get_mongodb()
+        
+        # Define time ranges
+        now = datetime.utcnow()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        yesterday_start = today_start - timedelta(days=1)
+        
+        # Get today's data
+        today_pipeline = [
+            {
+                "$match": {
+                    "patient_id": patient_id,
+                    "timestamp": {"$gte": today_start}
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$metric_type",
+                    "total": {"$sum": "$value"},
+                    "avg": {"$avg": "$value"},
+                    "min": {"$min": "$value"},
+                    "max": {"$max": "$value"},
+                    "count": {"$sum": 1}
+                }
+            }
+        ]
+        
+        # Get yesterday's data
+        yesterday_pipeline = [
+            {
+                "$match": {
+                    "patient_id": patient_id,
+                    "timestamp": {
+                        "$gte": yesterday_start,
+                        "$lt": today_start
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$metric_type",
+                    "total": {"$sum": "$value"},
+                    "avg": {"$avg": "$value"},
+                    "count": {"$sum": 1}
+                }
+            }
+        ]
+        
+        today_results = await mongodb.health_metrics.aggregate(today_pipeline).to_list(length=100)
+        yesterday_results = await mongodb.health_metrics.aggregate(yesterday_pipeline).to_list(length=100)
+        
+        # Organize today's data
+        today_data = {item["_id"]: item for item in today_results}
+        yesterday_data = {item["_id"]: item for item in yesterday_results}
+        
+        # Calculate summary with changes
+        summary = {}
+        
+        for metric_type in ["steps", "heart_rate", "calories", "distance", "flights_climbed", "sleep"]:
+            if metric_type in today_data:
+                today_item = today_data[metric_type]
+                
+                # Calculate change from yesterday
+                change = None
+                if metric_type in yesterday_data:
+                    yesterday_value = yesterday_data[metric_type].get("total" if metric_type in ["steps", "calories", "distance", "flights_climbed", "sleep"] else "avg", 0)
+                    today_value = today_item.get("total" if metric_type in ["steps", "calories", "distance", "flights_climbed", "sleep"] else "avg", 0)
+                    
+                    if yesterday_value > 0:
+                        change_pct = ((today_value - yesterday_value) / yesterday_value) * 100
+                        change = f"{'+' if change_pct > 0 else ''}{round(change_pct)}%"
+                
+                # Build summary based on metric type
+                if metric_type in ["steps", "calories", "flights_climbed"]:
+                    summary[metric_type] = {
+                        "total": round(today_item["total"], 2),
+                        "change": change
+                    }
+                elif metric_type == "distance":
+                    summary[metric_type] = {
+                        "total": round(today_item["total"], 2),
+                        "unit": "km",
+                        "change": change
+                    }
+                elif metric_type == "sleep":
+                    summary[metric_type] = {
+                        "total": round(today_item["total"], 2),
+                        "unit": "hours",
+                        "change": change
+                    }
+                elif metric_type == "heart_rate":
+                    summary[metric_type] = {
+                        "avg": round(today_item["avg"], 1),
+                        "min": round(today_item["min"], 1),
+                        "max": round(today_item["max"], 1),
+                        "change": change
+                    }
+                else:
+                    summary[metric_type] = {
+                        "total": round(today_item["total"], 2),
+                        "avg": round(today_item["avg"], 2),
+                        "change": change
+                    }
+            else:
+                # No data for this metric today
+                if metric_type == "heart_rate":
+                    summary[metric_type] = {
+                        "avg": 0,
+                        "min": 0,
+                        "max": 0,
+                        "change": None
+                    }
+                elif metric_type == "sleep":
+                    summary[metric_type] = {
+                        "total": 0,
+                        "unit": "hours",
+                        "change": None
+                    }
+                elif metric_type == "distance":
+                    summary[metric_type] = {
+                        "total": 0,
+                        "unit": "km",
+                        "change": None
+                    }
+                else:
+                    summary[metric_type] = {
+                        "total": 0,
+                        "change": None
+                    }
+        
+        logger.info("Calculated today's summary", patient_id=patient_id)
+        
+        return summary

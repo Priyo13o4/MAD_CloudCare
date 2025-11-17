@@ -80,7 +80,7 @@ CloudCare follows the **MVVM (Model-View-ViewModel)** architectural pattern with
 │         Data Layer                  │
 │  - Models                           │
 │  - Data Sources                     │
-│  - Mock Data (current)              │
+│  - Remote API + Local Cache         │
 └─────────────────────────────────────┘
 ```
 

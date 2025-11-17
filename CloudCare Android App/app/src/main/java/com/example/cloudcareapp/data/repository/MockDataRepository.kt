@@ -27,14 +27,17 @@ object MockDataRepository {
     // Mock Wearable Devices
     private val mockDevices = listOf(
         WearableDevice(
-            id = 1,
+            id = "1",
+            patient_id = "7",
             name = "Xiaomi Mi Band",
             type = "Fitness Tracker",
-            isConnected = true,
-            batteryLevel = 85,
-            lastSyncTime = "2 minutes ago",
-            dataPointsSynced = 7,
-            iconType = DeviceIconType.FITNESS_TRACKER
+            device_id = "xiaomi_mi_band_001",
+            is_connected = true,
+            battery_level = 85,
+            last_sync_time = "2 minutes ago",
+            data_points_synced = 7,
+            created_at = "2025-11-15T10:00:00Z",
+            icon_type = DeviceIconType.FITNESS_TRACKER
         )
     )
     

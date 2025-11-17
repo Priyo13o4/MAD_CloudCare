@@ -1,5 +1,7 @@
 package com.example.cloudcareapp.data.model
 
+import com.google.gson.annotations.SerializedName
+
 data class Patient(
     val id: Int,
     val name: String,
@@ -18,14 +20,17 @@ data class Patient(
 )
 
 data class WearableDevice(
-    val id: Int,
-    val name: String,
-    val type: String,
-    val isConnected: Boolean,
-    val batteryLevel: Int,
-    val lastSyncTime: String,
-    val dataPointsSynced: Int,
-    val iconType: DeviceIconType = DeviceIconType.FITNESS_TRACKER
+    val id: String,
+    val patient_id: String,
+    val name: String?,
+    val type: String?,
+    val device_id: String,
+    val is_connected: Boolean,
+    val battery_level: Int,
+    val last_sync_time: String?,
+    val data_points_synced: Int,
+    val created_at: String,
+    val icon_type: DeviceIconType = DeviceIconType.FITNESS_TRACKER
 )
 
 enum class DeviceIconType {

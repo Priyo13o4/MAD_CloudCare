@@ -35,6 +35,11 @@ class AppleHealthParser:
         "HKCategoryTypeIdentifierSleepAnalysis": "sleep_category",
         "HKQuantityTypeIdentifierRestingHeartRate": "resting_heart_rate",
         "HKQuantityTypeIdentifierVO2Max": "vo2_max",
+        "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": "hrv",
+        "HKQuantityTypeIdentifierAppleExerciseTime": "exercise_time",
+        "HKCategoryTypeIdentifierAppleStandHour": "stand_hour",
+        "HKQuantityTypeIdentifierBodyMass": "weight",
+        "HKQuantityTypeIdentifierRespiratoryRate": "respiratory_rate",
         
         # iOS display names (what the app actually sends)
         "Heart Rate": "heart_rate",
@@ -46,6 +51,31 @@ class AppleHealthParser:
         "Resting Heart Rate": "resting_heart_rate",
         "VO2 Max": "vo2_max",
         "Workouts": "workout",
+        "Heart Rate Variability": "hrv",
+        "Apple Exercise Time": "exercise_time",
+        "Apple Stand Hour": "stand_hour",
+        "Body Mass": "weight",
+        "Oxygen Saturation": "oxygen_level",
+        "Respiratory Rate": "respiratory_rate",
+        
+        # iOS camelCase versions (what iOS Models.swift actually sends)
+        "heartRate": "heart_rate",
+        "stepCount": "steps",
+        "activeEnergy": "calories",
+        "activeEnergyBurned": "calories",
+        "sleepAnalysis": "sleep",
+        "workout": "workout",
+        "workouts": "workout",
+        "distanceWalkingRunning": "distance",
+        "flightsClimbed": "flights_climbed",
+        "restingHeartRate": "resting_heart_rate",
+        "vo2Max": "vo2_max",
+        "heartRateVariabilitySDNN": "hrv",
+        "appleExerciseTime": "exercise_time",
+        "appleStandHour": "stand_hour",
+        "bodyMass": "weight",
+        "oxygenSaturation": "oxygen_level",
+        "respiratoryRate": "respiratory_rate",
     }
     
     @staticmethod
