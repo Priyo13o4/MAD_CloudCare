@@ -338,6 +338,10 @@ class WearablesService:
                     "created_at": datetime.utcnow(),
                 }
                 
+                # Add sleep_category field if present (for sleep_analysis metrics)
+                if metric.get("sleep_category"):
+                    document["sleep_category"] = metric["sleep_category"]
+                
                 # Try to insert
                 try:
                     await mongodb.health_metrics.insert_one(document)
@@ -563,6 +567,198 @@ class WearablesService:
         return metrics
     
     @staticmethod
+    async def _get_sleep_sessions(patient_id: str, today_start: datetime) -> Dict[str, Any]:
+        """
+        Get detailed sleep session information for today with stage breakdown.
+        
+        Returns sleep data structured like Apple Health:
+        - time_in_bed: Total time from first inBed to last wake
+        - time_asleep: Total actual sleep time (excluding awake periods)
+        - stages: Breakdown by sleep stage (awake, rem, core, deep) with durations
+        - sessions: Individual sleep periods with start/end times
+        
+        Args:
+            patient_id: Patient's unique ID
+            today_start: Start of today (UTC midnight)
+            
+        Returns:
+            Dict with sleep session data and stage breakdown
+        """
+        mongodb = get_mongodb()
+        
+        # Look back 48 hours to catch sleep sessions that started yesterday
+        lookback_start = today_start - timedelta(days=1)
+        
+        # Query for all sleep_analysis metrics from the past 48 hours
+        sleep_metrics = await mongodb.health_metrics.find({
+            "patient_id": patient_id,
+            "metric_type": "sleep_analysis",
+            "start_date": {"$gte": lookback_start}
+        }).sort("start_date", 1).to_list(length=None)
+        
+        if not sleep_metrics:
+            return {
+                "time_in_bed_hours": 0,
+                "time_asleep_hours": 0,
+                "stages": {
+                    "awake": 0,
+                    "rem": 0,
+                    "core": 0,
+                    "deep": 0
+                },
+                "sessions": []
+            }
+        
+        # Group into sleep sessions (gap > 1 hour means new session)
+        sessions = []
+        current_session = None
+        gap_threshold = timedelta(hours=1)
+        
+        for metric in sleep_metrics:
+            start_ts = metric.get("start_date")
+            end_ts = metric.get("end_date")
+            category = metric.get("sleep_category", "unknown")
+            value_hours = metric.get("value", 0)
+            
+            if not current_session:
+                # Start new session
+                current_session = {
+                    "session_start": start_ts,
+                    "session_end": end_ts,
+                    "samples": [{
+                        "category": category,
+                        "start": start_ts,
+                        "end": end_ts,
+                        "hours": value_hours
+                    }]
+                }
+            else:
+                # Check if this belongs to the same session
+                time_since_last = start_ts - current_session["session_end"]
+                
+                if time_since_last <= gap_threshold:
+                    # Continue current session
+                    current_session["session_end"] = end_ts
+                    current_session["samples"].append({
+                        "category": category,
+                        "start": start_ts,
+                        "end": end_ts,
+                        "hours": value_hours
+                    })
+                else:
+                    # New session - save the previous one
+                    sessions.append(current_session)
+                    current_session = {
+                        "session_start": start_ts,
+                        "session_end": end_ts,
+                        "samples": [{
+                            "category": category,
+                            "start": start_ts,
+                            "end": end_ts,
+                            "hours": value_hours
+                        }]
+                    }
+        
+        # Don't forget the last session
+        if current_session:
+            sessions.append(current_session)
+        
+        # Calculate stage totals across all sessions
+        stage_totals = {
+            "awake": 0.0,
+            "rem": 0.0,
+            "core": 0.0,
+            "deep": 0.0
+        }
+        
+        total_in_bed = 0.0
+        total_asleep = 0.0
+        
+        formatted_sessions = []
+        
+        for session in sessions:
+            # Calculate session metrics
+            session_start = session["session_start"]
+            session_end = session["session_end"]
+            
+            # Only include sessions relevant to today
+            if session_start < today_start + timedelta(days=1) and session_end >= today_start - timedelta(days=1):
+                session_in_bed = 0.0
+                session_asleep = 0.0
+                session_stages = {
+                    "awake": 0.0,
+                    "rem": 0.0,
+                    "core": 0.0,
+                    "deep": 0.0
+                }
+                
+                for sample in session["samples"]:
+                    category = sample["category"]
+                    hours = sample["hours"]
+                    
+                    if category == "inBed":
+                        session_in_bed += hours
+                        total_in_bed += hours
+                    elif category == "awake":
+                        session_stages["awake"] += hours
+                        stage_totals["awake"] += hours
+                    elif category == "rem":
+                        session_stages["rem"] += hours
+                        stage_totals["rem"] += hours
+                        session_asleep += hours
+                        total_asleep += hours
+                    elif category == "core":
+                        session_stages["core"] += hours
+                        stage_totals["core"] += hours
+                        session_asleep += hours
+                        total_asleep += hours
+                    elif category == "deep":
+                        session_stages["deep"] += hours
+                        stage_totals["deep"] += hours
+                        session_asleep += hours
+                        total_asleep += hours
+                    elif category == "asleep":
+                        # Generic sleep without stage info - count as core
+                        session_stages["core"] += hours
+                        stage_totals["core"] += hours
+                        session_asleep += hours
+                        total_asleep += hours
+                
+                # Format session times
+                start_str = session_start.isoformat() + "Z" if hasattr(session_start, 'isoformat') else str(session_start)
+                end_str = session_end.isoformat() + "Z" if hasattr(session_end, 'isoformat') else str(session_end)
+                
+                formatted_sessions.append({
+                    "start_time": start_str,
+                    "end_time": end_str,
+                    "in_bed_hours": round(session_in_bed, 2),
+                    "asleep_hours": round(session_asleep, 2),
+                    "stages": {
+                        "awake": round(session_stages["awake"], 2),
+                        "rem": round(session_stages["rem"], 2),
+                        "core": round(session_stages["core"], 2),
+                        "deep": round(session_stages["deep"], 2)
+                    }
+                })
+        
+        # Round stage totals
+        stage_totals = {k: round(v, 2) for k, v in stage_totals.items()}
+        
+        logger.debug(
+            f"Retrieved {len(formatted_sessions)} sleep sessions",
+            patient_id=patient_id,
+            time_in_bed=round(total_in_bed, 2),
+            time_asleep=round(total_asleep, 2)
+        )
+        
+        return {
+            "time_in_bed_hours": round(total_in_bed, 2),
+            "time_asleep_hours": round(total_asleep, 2),
+            "stages": stage_totals,
+            "sessions": formatted_sessions
+        }
+    
+    @staticmethod
     async def get_today_summary(patient_id: str) -> Dict[str, Any]:
         """
         Get aggregated summary for today with comparison to yesterday.
@@ -631,15 +827,15 @@ class WearablesService:
         # Calculate summary with changes
         summary = {}
         
-        for metric_type in ["steps", "heart_rate", "calories", "distance", "flights_climbed", "sleep"]:
+        for metric_type in ["steps", "heart_rate", "calories", "distance", "flights_climbed", "sleep_analysis"]:
             if metric_type in today_data:
                 today_item = today_data[metric_type]
                 
                 # Calculate change from yesterday
                 change = None
                 if metric_type in yesterday_data:
-                    yesterday_value = yesterday_data[metric_type].get("total" if metric_type in ["steps", "calories", "distance", "flights_climbed", "sleep"] else "avg", 0)
-                    today_value = today_item.get("total" if metric_type in ["steps", "calories", "distance", "flights_climbed", "sleep"] else "avg", 0)
+                    yesterday_value = yesterday_data[metric_type].get("total" if metric_type in ["steps", "calories", "distance", "flights_climbed", "sleep_analysis"] else "avg", 0)
+                    today_value = today_item.get("total" if metric_type in ["steps", "calories", "distance", "flights_climbed", "sleep_analysis"] else "avg", 0)
                     
                     if yesterday_value > 0:
                         change_pct = ((today_value - yesterday_value) / yesterday_value) * 100
@@ -657,11 +853,16 @@ class WearablesService:
                         "unit": "km",
                         "change": change
                     }
-                elif metric_type == "sleep":
-                    summary[metric_type] = {
-                        "total": round(today_item["total"], 2),
+                elif metric_type == "sleep_analysis":
+                    # Get detailed sleep session data with stage breakdown
+                    sleep_data = await WearablesService._get_sleep_sessions(patient_id, today_start)
+                    summary["sleep"] = {
+                        "time_in_bed": sleep_data["time_in_bed_hours"],
+                        "time_asleep": sleep_data["time_asleep_hours"],
                         "unit": "hours",
-                        "change": change
+                        "change": change,
+                        "stages": sleep_data["stages"],
+                        "sessions": sleep_data["sessions"]
                     }
                 elif metric_type == "heart_rate":
                     summary[metric_type] = {
@@ -685,11 +886,19 @@ class WearablesService:
                         "max": 0,
                         "change": None
                     }
-                elif metric_type == "sleep":
-                    summary[metric_type] = {
-                        "total": 0,
+                elif metric_type == "sleep_analysis":
+                    summary["sleep"] = {
+                        "time_in_bed": 0,
+                        "time_asleep": 0,
                         "unit": "hours",
-                        "change": None
+                        "change": None,
+                        "stages": {
+                            "awake": 0,
+                            "rem": 0,
+                            "core": 0,
+                            "deep": 0
+                        },
+                        "sessions": []
                     }
                 elif metric_type == "distance":
                     summary[metric_type] = {

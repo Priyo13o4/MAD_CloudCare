@@ -100,6 +100,58 @@ class HealthMetricsRepository(
     }
     
     /**
+     * Get accurate sleep trends with time_in_bed vs time_asleep separation.
+     * 
+     * This uses the dedicated sleep-trends endpoint that correctly handles
+     * Apple Health sleep data structure by separating 'inBed' samples from
+     * actual sleep stages ('core', 'deep', 'rem').
+     * 
+     * @param patientId Patient's unique ID
+     * @param days Number of days to look back (default: 30)
+     * @return Result containing daily sleep trends or error
+     */
+    suspend fun getSleepTrends(
+        patientId: String,
+        days: Int = 30
+    ): Result<SleepTrendsResponse> = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Fetching sleep trends: days=$days")
+            val response = apiService.getSleepTrends(patientId, days)
+            Log.d(TAG, "Successfully fetched ${response.data.size} sleep trend data points")
+            Result.success(response)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch sleep trends", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get heart rate trends with baseline positioning at 72 BPM.
+     * 
+     * This uses the dedicated heart-rate-trends endpoint that returns
+     * daily average/min/max BPM for suspended bar visualization where
+     * bars extend both above and below the 72 BPM baseline.
+     * 
+     * @param patientId Patient's unique ID
+     * @param days Number of days to look back (default: 30)
+     * @return Result containing daily heart rate trends or error
+     */
+    suspend fun getHeartRateTrends(
+        patientId: String,
+        days: Int = 30
+    ): Result<HeartRateTrendsResponse> = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Fetching heart rate trends: days=$days")
+            val response = apiService.getHeartRateTrends(patientId, days)
+            Log.d(TAG, "Successfully fetched ${response.data.size} heart rate trend data points")
+            Result.success(response)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch heart rate trends", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
      * Get specific metric type over date range
      * 
      * @param patientId Patient's unique ID

@@ -7,7 +7,7 @@ Handles wearable device management and health data sync.
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import structlog
 
 from app.models.wearables import (
@@ -280,9 +280,6 @@ async def import_apple_health(export: AppleHealthExport):
         raw_metrics = export.dict().get("metrics", [])
         individual_metrics = AppleHealthParser.convert_to_individual_metrics(raw_metrics)
         
-        # Extract sleep stages for aggregated data
-        sleep_stages = AppleHealthParser.extract_sleep_stages(raw_metrics)
-        
         # Use userId from export or default for testing
         patient_id = export.userId if export.userId else "test_patient_001"
         
@@ -359,24 +356,6 @@ async def import_apple_health(export: AppleHealthExport):
             device_id=device_info["device_id"],
             metrics=individual_metrics
         )
-        
-        # Also store aggregated sleep stages in a summary document
-        if any(s > 0 for s in sleep_stages.values()):
-            mongodb = get_mongodb()
-            sleep_summary = {
-                "patient_id": patient_id,
-                "device_id": device_info["device_id"],
-                "type": "sleep_stages_summary",
-                "timestamp": datetime.utcnow(),
-                **sleep_stages,
-                "total_sleep": sum(sleep_stages.values()),
-            }
-            await mongodb.sleep_summaries.update_one(
-                {"patient_id": patient_id, "device_id": device_info["device_id"]},
-                {"$set": sleep_summary},
-                upsert=True
-            )
-            logger.info("Stored sleep stages summary", patient_id=patient_id, **sleep_stages)
         
         logger.info(
             "Imported Apple Health data",
@@ -807,5 +786,204 @@ async def get_today_summary(patient_id: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve today's summary: {str(e)}"
+        )
+
+
+@router.get("/metrics/sleep-trends")
+async def get_sleep_trends(patient_id: str, days: int = 30):
+    """
+    Get daily sleep trends with accurate time_in_bed vs time_asleep separation.
+    
+    **Public endpoint for testing - accepts patient_id as query parameter.**
+    
+    This endpoint correctly handles Apple Health sleep data structure:
+    - 'inBed' samples represent total time in bed
+    - 'core', 'deep', 'rem' samples represent actual sleep time
+    - 'awake' samples are excluded from sleep time
+    
+    Query Parameters:
+    - patient_id: Patient's unique ID (required)
+    - days: Number of days to look back (default: 30)
+    
+    Returns daily sleep trends:
+    [
+        {
+            "date": "2025-11-18",
+            "time_in_bed": 7.5,      // Hours in bed (from 'inBed' samples)
+            "time_asleep": 6.8        // Actual sleep hours (core + deep + rem)
+        },
+        ...
+    ]
+    """
+    try:
+        from app.core.database import get_mongodb
+        
+        mongodb = get_mongodb()
+        since = datetime.utcnow() - timedelta(days=days)
+        
+        # Aggregate sleep data by date and category
+        pipeline = [
+            {
+                "$match": {
+                    "patient_id": patient_id,
+                    "metric_type": "sleep_analysis",
+                    "timestamp": {"$gte": since}
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
+                        "category": "$sleep_category"
+                    },
+                    "total_hours": {"$sum": "$value"}
+                }
+            },
+            {
+                "$sort": {"_id.date": 1}
+            }
+        ]
+        
+        results = await mongodb.health_metrics.aggregate(pipeline).to_list(length=None)
+        
+        # Post-process: organize by date, separate inBed from actual sleep
+        daily_data = {}
+        for item in results:
+            date = item["_id"]["date"]
+            category = item["_id"]["category"]
+            hours = round(item["total_hours"], 2)
+            
+            if date not in daily_data:
+                daily_data[date] = {
+                    "date": date,
+                    "time_in_bed": 0.0,
+                    "time_asleep": 0.0
+                }
+            
+            # inBed = total time in bed
+            if category == "inBed":
+                daily_data[date]["time_in_bed"] = hours
+            # Actual sleep = core + deep + rem (exclude awake)
+            elif category in ["core", "deep", "rem"]:
+                daily_data[date]["time_asleep"] += hours
+        
+        # Round time_asleep values
+        for data in daily_data.values():
+            data["time_asleep"] = round(data["time_asleep"], 2)
+        
+        # Sort by date and return as list
+        sorted_data = sorted(list(daily_data.values()), key=lambda x: x["date"])
+        
+        logger.info(
+            "Retrieved sleep trends",
+            patient_id=patient_id,
+            days=days,
+            count=len(sorted_data)
+        )
+        
+        return {
+            "patient_id": patient_id,
+            "days": days,
+            "data": sorted_data
+        }
+        
+    except Exception as e:
+        logger.error("Failed to get sleep trends", error=str(e), exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve sleep trends: {str(e)}"
+        )
+
+
+@router.get("/metrics/heart-rate-trends")
+async def get_heart_rate_trends(patient_id: str, days: int = 30):
+    """
+    Get daily heart rate trends with baseline positioning at 72 BPM.
+    
+    **Public endpoint for testing - accepts patient_id as query parameter.**
+    
+    This endpoint aggregates daily heart rate data with average/min/max for
+    suspended bar chart visualization where 72 BPM is the visual baseline.
+    
+    Query Parameters:
+    - patient_id: Patient's unique ID (required)
+    - days: Number of days to look back (default: 30)
+    
+    Returns daily heart rate trends:
+    [
+        {
+            "date": "2025-11-18",
+            "bpm": 72.5,          // Average BPM for the day
+            "min_bpm": 58.0,      // Minimum BPM during the day
+            "max_bpm": 95.0       // Maximum BPM during the day
+        },
+        ...
+    ]
+    
+    Visualization Notes:
+    - Baseline (zero-point) is 72 BPM in the middle of Y-axis
+    - Bars extend above baseline for heart rates > 72 BPM
+    - Bars extend below baseline for heart rates < 72 BPM
+    - This allows "suspended bar" effect like Apple Health
+    """
+    try:
+        from app.core.database import get_mongodb
+        
+        mongodb = get_mongodb()
+        since = datetime.utcnow() - timedelta(days=days)
+        
+        # Aggregate heart rate data by date
+        pipeline = [
+            {
+                "$match": {
+                    "patient_id": patient_id,
+                    "metric_type": "heart_rate",
+                    "timestamp": {"$gte": since}
+                }
+            },
+            {
+                "$group": {
+                    "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
+                    "avg_bpm": {"$avg": "$value"},
+                    "min_bpm": {"$min": "$value"},
+                    "max_bpm": {"$max": "$value"},
+                    "count": {"$sum": 1}
+                }
+            },
+            {
+                "$sort": {"_id": 1}
+            }
+        ]
+        
+        results = await mongodb.health_metrics.aggregate(pipeline).to_list(length=None)
+        
+        # Format results
+        daily_data = []
+        for item in results:
+            daily_data.append({
+                "date": item["_id"],
+                "bpm": round(item["avg_bpm"], 1),
+                "min_bpm": round(item["min_bpm"], 1),
+                "max_bpm": round(item["max_bpm"], 1)
+            })
+        
+        logger.info(
+            "Retrieved heart rate trends",
+            patient_id=patient_id,
+            days=days,
+            count=len(daily_data)
+        )
+        
+        return {
+            "patient_id": patient_id,
+            "days": days,
+            "data": daily_data
+        }
+        
+    except Exception as e:
+        logger.error("Failed to get heart rate trends", error=str(e), exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve heart rate trends: {str(e)}"
         )
 

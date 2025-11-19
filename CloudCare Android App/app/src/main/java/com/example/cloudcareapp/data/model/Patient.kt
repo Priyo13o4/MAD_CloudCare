@@ -77,5 +77,10 @@ data class HealthSummary(
     val sleepChange: Int, // percentage
     val calories: Int,
     val caloriesPercentage: Int, // of goal
-    val caloriesGoal: Int = 2000
+    val caloriesGoal: Int = 2000,
+    // New sleep data structure
+    val sleepTimeInBed: Double? = null,
+    val sleepTimeAsleep: Double? = null,
+    val sleepStages: SleepStages? = null,
+    val sleepSessions: List<SleepSession>? = null
 )

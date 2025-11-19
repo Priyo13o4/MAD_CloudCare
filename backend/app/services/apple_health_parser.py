@@ -31,8 +31,8 @@ class AppleHealthParser:
         "HKQuantityTypeIdentifierOxygenSaturation": "oxygen_level",
         "HKQuantityTypeIdentifierBloodPressureSystolic": "blood_pressure_systolic",
         "HKQuantityTypeIdentifierBloodPressureDiastolic": "blood_pressure_diastolic",
-        "HKQuantityTypeIdentifierSleepAnalysis": "sleep",
-        "HKCategoryTypeIdentifierSleepAnalysis": "sleep_category",
+        "HKQuantityTypeIdentifierSleepAnalysis": "sleep_analysis",
+        "HKCategoryTypeIdentifierSleepAnalysis": "sleep_analysis",
         "HKQuantityTypeIdentifierRestingHeartRate": "resting_heart_rate",
         "HKQuantityTypeIdentifierVO2Max": "vo2_max",
         "HKQuantityTypeIdentifierHeartRateVariabilitySDNN": "hrv",
@@ -47,7 +47,7 @@ class AppleHealthParser:
         "Active Energy": "calories",
         "Walking/Running Distance": "distance",
         "Flights Climbed": "flights_climbed",
-        "Sleep Analysis": "sleep",
+        "Sleep Analysis": "sleep_analysis",
         "Resting Heart Rate": "resting_heart_rate",
         "VO2 Max": "vo2_max",
         "Workouts": "workout",
@@ -63,7 +63,7 @@ class AppleHealthParser:
         "stepCount": "steps",
         "activeEnergy": "calories",
         "activeEnergyBurned": "calories",
-        "sleepAnalysis": "sleep",
+        "sleepAnalysis": "sleep_analysis",
         "workout": "workout",
         "workouts": "workout",
         "distanceWalkingRunning": "distance",
@@ -244,6 +244,9 @@ class AppleHealthParser:
         Convert raw Apple Health metrics to individual CloudCare format.
         Each metric becomes a separate document for time-series analysis.
         
+        For sleep data, extracts the category (inBed, awake, core, deep, rem) from metadata
+        and stores it as a separate field for proper sleep stage tracking.
+        
         Args:
             metrics: List of raw Apple Health metrics
             
@@ -269,15 +272,29 @@ class AppleHealthParser:
             start_date = metric.get("startDate")
             end_date = metric.get("endDate")
             
-            individual_metrics.append({
+            # Extract metadata
+            metadata = metric.get("metadata", {})
+            
+            # For sleep analysis, extract the category (stage) from metadata
+            sleep_category = None
+            if our_type == "sleep_analysis":
+                sleep_category = metadata.get("category", "unknown")
+            
+            metric_doc = {
                 "metric_type": our_type,
                 "value": value,
                 "unit": metric.get("unit"),
                 "start_date": start_date,
                 "end_date": end_date,
                 "source_app": metric.get("sourceApp", "Unknown"),
-                "metadata": metric.get("metadata", {})
-            })
+                "metadata": metadata
+            }
+            
+            # Add sleep_category field for sleep metrics
+            if sleep_category:
+                metric_doc["sleep_category"] = sleep_category
+            
+            individual_metrics.append(metric_doc)
         
         if unknown_types:
             logger.debug(f"Skipped {len(unknown_types)} unknown metric types", types=list(unknown_types)[:5])
@@ -289,20 +306,26 @@ class AppleHealthParser:
     def extract_device_info(data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Extract device information from Apple Health export.
-        
+
         Args:
             data: Raw Apple Health export data
             
         Returns:
-            Dict with device information
+            Dict with device information including device name from sourceApp
         """
         metrics = data.get("metrics", [])
         devices = set()
+        source_apps = set()
         
         for metric in metrics:
             device = metric.get("metadata", {}).get("device")
             if device:
                 devices.add(device)
+            
+            # Extract device name from sourceApp field (e.g., "Priyodip's Apple Watch")
+            source_app = metric.get("sourceApp")
+            if source_app:
+                source_apps.add(source_app)
         
         # Determine primary device type
         device_type = "unknown"
@@ -311,9 +334,16 @@ class AppleHealthParser:
         elif "iPhone" in devices:
             device_type = "iphone"
         
+        # Get device name from sourceApp if available (e.g., "Priyodip's Apple Watch")
+        device_name = None
+        if source_apps:
+            # Use the first sourceApp as device name
+            device_name = list(source_apps)[0]
+        
         return {
             "device_id": data.get("deviceId"),
             "device_type": device_type,
+            "device_name": device_name,  # NEW: actual device name from iOS app
             "devices_used": list(devices),
             "is_connected": True,  # Assuming connected if we have recent data
         }

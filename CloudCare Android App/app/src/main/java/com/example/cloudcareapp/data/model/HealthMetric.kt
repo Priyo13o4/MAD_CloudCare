@@ -12,9 +12,10 @@ data class HealthMetric(
     val timestamp: String,
     val start_date: String?,
     val end_date: String?,
-    val source_app: String?,
+    val source_app: String?,  // Device name from iOS (e.g., "Priyodip's Apple Watch")
     val device_id: String?,
-    val metadata: Map<String, Any>? = null
+    @Deprecated("Removed for data normalization. Device info now in PostgreSQL wearable_devices table")
+    val metadata: Map<String, Any>? = null  // Deprecated - contains redundant data
 )
 
 /**
@@ -27,7 +28,12 @@ data class MetricSummary(
     val max: Double? = null,
     val change: String? = null,
     val unit: String? = null,
-    val count: Int? = null
+    val count: Int? = null,
+    // For sleep data: complete sleep information
+    val time_in_bed: Double? = null,
+    val time_asleep: Double? = null,
+    val stages: SleepStages? = null,  // Overall stage breakdown
+    val sessions: List<SleepSession>? = null  // Individual sleep sessions
 )
 
 /**
@@ -38,6 +44,27 @@ data class SleepBreakdown(
     val core_hours: Double? = null,
     val rem_hours: Double? = null,
     val light_hours: Double? = null
+)
+
+/**
+ * Sleep session with start/end times and stage breakdown
+ */
+data class SleepSession(
+    val start_time: String,
+    val end_time: String,
+    val in_bed_hours: Double? = null,
+    val asleep_hours: Double? = null,
+    val stages: SleepStages? = null
+)
+
+/**
+ * Sleep stage breakdown (in hours)
+ */
+data class SleepStages(
+    val awake: Double = 0.0,
+    val rem: Double = 0.0,
+    val core: Double = 0.0,
+    val deep: Double = 0.0
 )
 
 /**

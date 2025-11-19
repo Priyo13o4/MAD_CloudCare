@@ -1,3 +1,4 @@
+````markdown
 # CloudCare - Healthcare Management Platform
 
 > A comprehensive Android application for patient health management, doctor-patient coordination, and hospital administration with wearable device integration and Aadhar-based patient identification.
@@ -12,37 +13,365 @@
 ## 📋 Table of Contents
 
 - [Overview](#overview)
-- [Features](#features)
+- [Key Features](#key-features)
 - [Architecture](#architecture)
 - [Documentation](#documentation)
 - [Technology Stack](#technology-stack)
 - [Getting Started](#getting-started)
-- [Backend Setup](#backend-setup)
-- [App Screenshots](#app-screenshots)
-- [Contributing](#contributing)
-- [License](#license)
+- [Project Structure](#project-structure)
 
 ---
 
 ## 🔍 Overview
 
-CloudCare is a modern healthcare management platform that connects patients, doctors, and hospitals through a unified digital ecosystem. The application features:
+CloudCare is a modern healthcare management platform that connects patients, doctors, and hospitals through a unified digital ecosystem. The application enables:
 
-- **Patient-Centric Data Control**: Patients have complete control over their health data with granular consent management
+- **Patient-Centric Data Control**: Complete control over health data with granular consent management
 - **Real-time Health Monitoring**: Integration with wearable devices for continuous health tracking
-- **Aadhar-Based Universal ID**: Using India's Aadhar system as the foundation for patient identification across healthcare facilities
-- **Cross-Hospital Data Portability**: Patients can request and consolidate medical records from multiple hospitals
+- **Aadhar-Based Universal ID**: Using India's Aadhar system for patient identification across facilities
+- **Cross-Hospital Data Portability**: Request and consolidate medical records from multiple hospitals
 - **Emergency Response System**: Real-time alerts and critical patient monitoring for doctors
 
-### 🎯 Key Objectives
+### Core Innovation
 
-1. **Unified Health Records**: Consolidate health data from multiple sources into one secure platform
-2. **Privacy-First Design**: Patient-controlled consent system for all data sharing
-3. **Seamless Healthcare Coordination**: Enable efficient communication between patients, doctors, and hospitals
-4. **Preventive Healthcare**: Continuous monitoring and AI-powered health insights
-5. **Universal Accessibility**: Works across all healthcare facilities using Aadhar-based identification
+CloudCare implements **Aadhar-based universal patient identification** to solve healthcare record fragmentation across India, enabling seamless data portability between healthcare facilities while maintaining patient privacy.
 
 ---
+
+## ✨ Key Features
+
+### For Patients
+- 📱 **Personalized Dashboard**: Health overview and quick actions
+- ⌚ **Wearable Integration**: Apple Health, Xiaomi Mi Band, Fitbit support
+- 📄 **Medical Records**: Upload, manage, and share documents
+- 🔐 **Consent Management**: Granular control over data access
+- 🏥 **Facility Management**: Link multiple hospitals and request records
+- 🚨 **Health Alerts**: Real-time notifications for abnormal vitals
+
+### For Doctors
+- 📊 **Patient Dashboard**: Overview of assigned patients
+- 👥 **Patient Management**: View patient history and status
+- 🚨 **Emergency Monitoring**: Real-time alerts and severity tracking
+- 📅 **Appointment Schedule**: Manage daily consultations
+- 📝 **Medical Records**: Access patient history with consent
+
+### For Hospitals
+- 🏢 **Dashboard**: Key metrics and bed availability
+- 👨‍⚕️ **Staff Management**: Team organization and assignments
+- 🛏️ **Resource Management**: Bed and equipment tracking
+- 🚑 **Admissions**: Patient admission and monitoring
+
+---
+
+## 🏗️ Architecture
+
+### Application Architecture
+```
+MVVM (Model-View-ViewModel) Pattern
+├── UI Layer (Jetpack Compose)
+├── ViewModel Layer (State Management)
+├── Repository Layer (Data Abstraction)
+└── Data Layer (API, Cache, Local)
+```
+
+### Database Architecture
+```
+Dual Database System
+├── PostgreSQL (Relational)
+│   ├── Users & Authentication
+│   ├── Patient Metadata
+│   ├── Consents & Audit Logs
+│   └── Device Pairings
+└── MongoDB (Document Store)
+    ├── Individual Health Metrics
+    ├── Wearable Device Data
+    └── Medical Documents (GridFS)
+```
+
+### Backend
+- **Framework**: FastAPI (Python 3.11+)
+- **API**: RESTful endpoints with JWT authentication
+- **ORM**: Prisma for PostgreSQL
+- **Deployment**: Docker + Cloudflare Tunnel for stable URL
+
+---
+
+## 📚 Documentation
+
+### Main Documentation Files
+
+| Document | Purpose | Best For |
+|----------|---------|----------|
+| [docs/CLOUDCARE_DOCUMENTATION.md](docs/CLOUDCARE_DOCUMENTATION.md) | Complete app guide | Features, components, data models |
+| [docs/BACKEND_SETUP_GUIDE.md](docs/BACKEND_SETUP_GUIDE.md) | Backend setup & API | Installation, deployment, API endpoints |
+| [docs/APPLE_HEALTH_INTEGRATION.md](docs/APPLE_HEALTH_INTEGRATION.md) | Wearable integration | Apple Health/HealthKit setup |
+| [docs/IOS_QR_PAIRING_PROMPT.md](docs/IOS_QR_PAIRING_PROMPT.md) | iOS pairing | QR code linking between iOS & Android |
+| [backend/README.md](backend/README.md) | Backend quick start | Docker setup, environment config |
+
+### How to Use Documentation
+1. **Getting Started**: Start with [docs/BACKEND_SETUP_GUIDE.md](docs/BACKEND_SETUP_GUIDE.md) for setup
+2. **Understanding Features**: Read [docs/CLOUDCARE_DOCUMENTATION.md](docs/CLOUDCARE_DOCUMENTATION.md)
+3. **Integration Help**: Check specific integration docs as needed
+
+---
+
+## 🛠️ Technology Stack
+
+### Android App
+| Component | Technology |
+|-----------|-----------|
+| Language | Kotlin 2.0.21 |
+| UI Framework | Jetpack Compose |
+| Architecture | MVVM |
+| Networking | Retrofit 2.9.0 |
+| Async | Coroutines 1.7.3 |
+| Material Design | Material 3 |
+
+### Backend
+| Component | Technology |
+|-----------|-----------|
+| Framework | FastAPI 3.0.0 |
+| Language | Python 3.11+ |
+| ORM | Prisma |
+| Databases | PostgreSQL 15+, MongoDB 6.0+ |
+| Cache | Redis 7+ |
+| Deployment | Docker |
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+#### Android Development
+- Android Studio Ladybug+
+- JDK 11+
+- Android SDK API 26+
+- Gradle 8.13.0+
+
+#### Backend Development
+- Python 3.11+
+- Docker & Docker Compose
+- PostgreSQL 15+
+- MongoDB 6.0+
+
+### Quick Start - Android App
+
+```bash
+# 1. Clone and navigate
+git clone https://github.com/Priyo13o4/MAD_CloudCare.git
+cd MAD_CloudCare/CloudCare\ Android\ App
+
+# 2. Open in Android Studio
+# File → Open → Select CloudCare Android App folder
+
+# 3. Build and run
+./gradlew assembleDebug
+./gradlew installDebug
+
+# 4. Connect to backend
+# Update BASE_URL in RetrofitClient.kt to:
+# https://cloudcare.pipfactor.com/api/v1/
+```
+
+### Quick Start - Backend
+
+```bash
+# 1. Navigate to backend
+cd MAD_CloudCare/backend
+
+# 2. Copy environment
+cp .env.example .env
+
+# 3. Start services
+docker-compose up -d
+
+# 4. Run migrations
+docker-compose exec api prisma migrate dev
+
+# 5. Access at https://cloudcare.pipfactor.com
+```
+
+**Full setup instructions**: See [docs/BACKEND_SETUP_GUIDE.md](docs/BACKEND_SETUP_GUIDE.md)
+
+---
+
+## 📁 Project Structure
+
+```
+MAD_CloudCare/
+├── CloudCare Android App/          # Android app (Jetpack Compose)
+│   ├── app/
+│   │   ├── src/main/java/          # Kotlin source
+│   │   └── src/main/res/           # Resources
+│   └── build.gradle.kts
+├── CloudSync/                       # iOS companion app (SwiftUI)
+├── backend/                         # FastAPI backend
+│   ├── app/
+│   │   ├── api/                    # API routes
+│   │   ├── services/               # Business logic
+│   │   ├── models/                 # Data models
+│   │   └── core/                   # Configuration
+│   ├── prisma/                     # Database schemas
+│   ├── docker-compose.yml          # Services setup
+│   └── requirements.txt            # Python dependencies
+├── docs/                           # Documentation
+│   ├── CLOUDCARE_DOCUMENTATION.md
+│   ├── BACKEND_SETUP_GUIDE.md
+│   ├── APPLE_HEALTH_INTEGRATION.md
+│   └── IOS_QR_PAIRING_PROMPT.md
+└── README.md                       # This file
+```
+
+---
+
+## 🔑 Key Implementation Details
+
+### Aadhar-Based Patient Identification
+
+CloudCare uses India's Aadhar as the foundation for patient identification:
+
+```
+Patient Registration
+    ↓
+Aadhar Number Input
+    ↓
+Generate HMAC-SHA256 UID (irreversible)
+    ↓
+Encrypt Original Aadhar (separate storage)
+    ↓
+Use UID for all data linking
+```
+
+**Benefits:**
+- ✅ Universal identification across hospitals
+- ✅ Prevents record duplication
+- ✅ Enables document portability
+- ✅ Future-ready for ABDM integration
+- ✅ Privacy-preserving (raw Aadhar not exposed)
+
+### Wearable Device Integration
+
+**Individual Metrics Storage** (not aggregated):
+- Each health reading stored separately
+- 27,185+ metrics successfully tested
+- Multi-level deduplication:
+  - iOS app-level detection
+  - Backend database-level validation
+  - Unique compound indexes: `(patient_id, device_id, metric_type, timestamp)`
+
+**Supported Integration Methods:**
+- Apple Health (JSON export from iOS)
+- QR Code device pairing (iOS ↔ Android linking)
+- Direct API sync for health data
+
+### Database Architecture Rationale
+
+**PostgreSQL for Structured Data:**
+- User authentication (ACID transactions)
+- Patient metadata (relational integrity)
+- Consent management (audit trails)
+- Device pairings (referential integrity)
+
+**MongoDB for Health Data:**
+- Individual health metrics (high write throughput)
+- Time-series optimization (streaming data)
+- Flexible schema (device type variations)
+- GridFS for medical documents
+
+---
+
+## 🔒 Security & Privacy
+
+### Data Protection
+- ✅ Encryption at rest (database level)
+- ✅ Encryption in transit (HTTPS/TLS 1.2+)
+- ✅ JWT authentication (secure tokens)
+- ✅ RBAC (role-based access control)
+
+### Privacy Features
+- ✅ Patient-controlled consent system
+- ✅ Audit logs (all access tracked)
+- ✅ Data minimization (only necessary info)
+- ✅ Right to delete (GDPR ready)
+
+### Compliance
+- HIPAA-compliant architecture
+- GDPR-ready data handling
+- India's DPDPA (Digital Personal Data Protection Act) alignment
+
+---
+
+## 📊 Project Status
+
+**Status**: 🟢 Active Development
+
+**Current Phase**: Wearable Integration & Backend Optimization
+
+**Implemented:**
+- ✅ Complete MVVM architecture
+- ✅ Jetpack Compose UI
+- ✅ FastAPI backend
+- ✅ PostgreSQL + MongoDB setup
+- ✅ Apple Health/HealthKit integration
+- ✅ QR code device pairing
+- ✅ JWT authentication
+- ✅ Docker deployment
+- ✅ Cloudflare Tunnel (stable URL)
+
+**In Progress:**
+- 🚧 Real-time wearable sync
+- 🚧 AI-powered health insights
+- 🚧 Telemedicine features
+
+**Planned:**
+- ⏳ Google Fit integration
+- ⏳ ABDM integration
+- ⏳ E-pharmacy linking
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add AmazingFeature'`)
+4. Push to branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+**Guidelines:**
+- Follow Kotlin conventions for Android
+- Write clean, documented code
+- Add tests for new features
+- Update documentation
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see LICENSE file for details.
+
+---
+
+## 📞 Support & Contact
+
+- **Documentation**: See [docs/](docs/) folder
+- **Issues**: Create an issue in the repository
+- **Questions**: Check existing issues first
+
+---
+
+## 👥 Team
+
+Developed by students of MAD (Mobile Application Development) course, Semester 5.
+
+---
+
+**Made with ❤️ for better healthcare in India**
+
+````
 
 ## ✨ Features
 

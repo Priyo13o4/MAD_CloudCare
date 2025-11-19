@@ -29,7 +29,13 @@ class WearablesViewModel(
     private val _weeklyData = MutableStateFlow<WeeklyDataState>(WeeklyDataState.Loading)
     val weeklyData: StateFlow<WeeklyDataState> = _weeklyData.asStateFlow()
     
-    private val _selectedDateRange = MutableStateFlow(7) // Default 7 days
+    private val _sleepTrends = MutableStateFlow<List<SleepTrendDataPoint>>(emptyList())
+    val sleepTrends: StateFlow<List<SleepTrendDataPoint>> = _sleepTrends.asStateFlow()
+    
+    private val _heartRateTrends = MutableStateFlow<List<HeartRateTrendDataPoint>>(emptyList())
+    val heartRateTrends: StateFlow<List<HeartRateTrendDataPoint>> = _heartRateTrends.asStateFlow()
+    
+    private val _selectedDateRange = MutableStateFlow(30) // CHANGE 1: Load 30 days by default so "Monthly" tabs work immediately
     val selectedDateRange: StateFlow<Int> = _selectedDateRange.asStateFlow()
     
     private val _selectedPeriod = MutableStateFlow("daily") // hourly for 1D, daily for others
@@ -43,24 +49,33 @@ class WearablesViewModel(
         observeWeeklyMetrics()
         loadWearablesData()
         loadWeeklyTrends()
+        loadSleepTrends(30) // CHANGE 2: Pass 30 here explicitly
+        loadHeartRateTrends(30)
     }
     
     fun setDateRange(days: Int) {
         _selectedDateRange.value = days
         _selectedPeriod.value = if (days == 1) "hourly" else "daily"
         loadWeeklyTrends()
-    }
-
-    private fun observeCachedWearables() {
+        loadSleepTrends(days) // Reload sleep trends with new range
+        loadHeartRateTrends(days) // Reload heart rate trends with new range
+    }    private fun observeCachedWearables() {
         viewModelScope.launch {
             combine(
                 AppDataCache.todaySummaryCache,
                 AppDataCache.devicesCache
             ) { summaryResponse, devices ->
-                if (summaryResponse != null) summaryResponse to devices else null
+                // Only emit if we have both summary AND devices (devices can be empty list, but should be explicitly set)
+                if (summaryResponse != null) {
+                    Log.d(TAG, "Emitting cached data: summary present, devices=${devices.size}")
+                    summaryResponse to devices
+                } else {
+                    null
+                }
             }
                 .filterNotNull()
                 .collect { (summaryResponse, devices) ->
+                    Log.d(TAG, "Cache observer triggered - updating UI with cached data")
                     val healthSummary = mapToHealthSummary(summaryResponse.summary)
                     val insights = generateInsights(healthSummary)
                     _uiState.value = WearablesUiState.Success(
@@ -100,19 +115,27 @@ class WearablesViewModel(
                     return@launch
                 }
                 
-                if (!hasSummary) {
+                // Only show loading if we have no cache at all
+                if (!hasSummary && !hasDevices) {
                     _uiState.value = WearablesUiState.Loading
+                }
+                
+                var loadedSummary = false
+                var loadedDevices = false
+                
+                if (!hasSummary) {
                     val summaryResult = healthMetricsRepository.getTodaySummary(PATIENT_ID)
                     summaryResult.onSuccess { todayResponse ->
                         AppDataCache.setTodaySummary(todayResponse)
                         AppDataCache.updateLastSyncTime()
+                        loadedSummary = true
                     }.onFailure { error ->
                         Log.e(TAG, "Failed to load wearables summary", error)
-                        _uiState.value = WearablesUiState.Error(
-                            error.message ?: "Failed to load wearables data"
-                        )
-                        return@launch
+                        // IMPORTANT: Do NOT show error if cache exists - silently fall back
+                        Log.d(TAG, "Falling back to cached summary due to network error")
                     }
+                } else {
+                    loadedSummary = true
                 }
                 
                 if (!hasDevices) {
@@ -120,18 +143,34 @@ class WearablesViewModel(
                     devicesResult.onSuccess { devices ->
                         AppDataCache.setDevices(devices)
                         AppDataCache.updateLastSyncTime()
+                        loadedDevices = true
                     }.onFailure { error ->
                         Log.e(TAG, "Failed to load devices", error)
-                        if (!AppDataCache.hasDevices()) {
-                            _uiState.value = WearablesUiState.Error(
-                                error.message ?: "Failed to load connected devices"
-                            )
-                        }
+                        // IMPORTANT: Do NOT show error if cache exists - silently fall back
+                        Log.d(TAG, "Falling back to cached devices due to network error")
                     }
+                } else {
+                    loadedDevices = true
+                }
+                
+                // Check if we have any data (cached or newly loaded) to display
+                if ((loadedSummary || AppDataCache.hasTodaySummary()) && 
+                    (loadedDevices || AppDataCache.hasDevices())) {
+                    Log.d(TAG, "Have data to display (cached or loaded)")
+                    // Cache observer will update UI automatically
+                } else if (!AppDataCache.hasTodaySummary() || !AppDataCache.hasDevices()) {
+                    // Only show error if we have NO cache AND failed to load
+                    _uiState.value = WearablesUiState.Error(
+                        "Unable to load wearables data. Please check your connection."
+                    )
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Exception loading wearables", e)
-                _uiState.value = WearablesUiState.Error(e.message ?: "Unknown error")
+                if (!AppDataCache.hasTodaySummary() || !AppDataCache.hasDevices()) {
+                    _uiState.value = WearablesUiState.Error(e.message ?: "Unknown error")
+                } else {
+                    Log.d(TAG, "Exception occurred, but have cached data to display")
+                }
             }
         }
     }
@@ -161,11 +200,79 @@ class WearablesViewModel(
                     AppDataCache.updateLastSyncTime()
                 }.onFailure { error ->
                     Log.e(TAG, "Failed to load weekly data", error)
-                    _weeklyData.value = WeeklyDataState.Error(error.message ?: "Failed to load weekly data")
+                    // Try to use older cached data as fallback
+                    val fallbackMetrics = AppDataCache.getMetrics(_selectedPeriod.value, _selectedDateRange.value)
+                    if (fallbackMetrics != null) {
+                        Log.d(TAG, "Using fallback cached metrics after network error")
+                        _weeklyData.value = WeeklyDataState.Success(fallbackMetrics)
+                    } else {
+                        _weeklyData.value = WeeklyDataState.Error(error.message ?: "Failed to load weekly data")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Exception loading weekly trends", e)
-                _weeklyData.value = WeeklyDataState.Error(e.message ?: "Unknown error")
+                // Try to use cached data
+                val cachedMetrics = AppDataCache.getMetrics(_selectedPeriod.value, _selectedDateRange.value)
+                if (cachedMetrics != null) {
+                    Log.d(TAG, "Using cached metrics after exception")
+                    _weeklyData.value = WeeklyDataState.Success(cachedMetrics)
+                } else {
+                    _weeklyData.value = WeeklyDataState.Error(e.message ?: "Unknown error")
+                }
+            }
+        }
+    }
+    
+    /**
+     * Load accurate sleep trends using the dedicated sleep-trends endpoint.
+     * This separates time_in_bed from time_asleep for honest visualization.
+     */
+    fun loadSleepTrends(days: Int = 7) {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Loading sleep trends for $days days")
+                val result = healthMetricsRepository.getSleepTrends(
+                    patientId = PATIENT_ID,
+                    days = days
+                )
+                
+                result.onSuccess { response ->
+                    _sleepTrends.value = response.data
+                    Log.d(TAG, "Sleep trends loaded: ${response.data.size} data points")
+                }.onFailure { error ->
+                    Log.e(TAG, "Failed to load sleep trends", error)
+                    _sleepTrends.value = emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception loading sleep trends", e)
+                _sleepTrends.value = emptyList()
+            }
+        }
+    }
+    
+    /**
+     * Load heart rate trends using the dedicated heart-rate-trends endpoint.
+     * This returns daily average/min/max BPM with 72 BPM as baseline for visualization.
+     */
+    fun loadHeartRateTrends(days: Int = 7) {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Loading heart rate trends for $days days")
+                val result = healthMetricsRepository.getHeartRateTrends(
+                    patientId = PATIENT_ID,
+                    days = days
+                )
+                
+                result.onSuccess { response ->
+                    _heartRateTrends.value = response.data
+                    Log.d(TAG, "Heart rate trends loaded: ${response.data.size} data points")
+                }.onFailure { error ->
+                    Log.e(TAG, "Failed to load heart rate trends", error)
+                    _heartRateTrends.value = emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception loading heart rate trends", e)
+                _heartRateTrends.value = emptyList()
             }
         }
     }
@@ -182,11 +289,8 @@ class WearablesViewModel(
                     Log.d(TAG, "Wearables summary refreshed")
                 }.onFailure { error ->
                     Log.e(TAG, "Refresh summary failed", error)
-                    if (!AppDataCache.hasTodaySummary()) {
-                        _uiState.value = WearablesUiState.Error(
-                            error.message ?: "Failed to refresh summary"
-                        )
-                    }
+                    // IMPORTANT: Do NOT show error - cache will be shown with warning indicator
+                    Log.d(TAG, "Summary refresh failed, will show cached data")
                 }
 
                 val devicesResult = healthMetricsRepository.getPairedDevices(PATIENT_ID)
@@ -195,11 +299,8 @@ class WearablesViewModel(
                     AppDataCache.updateLastSyncTime()
                 }.onFailure { error ->
                     Log.e(TAG, "Refresh devices failed", error)
-                    if (!AppDataCache.hasDevices()) {
-                        _uiState.value = WearablesUiState.Error(
-                            error.message ?: "Failed to refresh devices"
-                        )
-                    }
+                    // IMPORTANT: Do NOT show error - cache will be shown with warning indicator
+                    Log.d(TAG, "Devices refresh failed, will show cached data")
                 }
 
                 val metricsResult = healthMetricsRepository.getAggregatedMetrics(
@@ -213,11 +314,15 @@ class WearablesViewModel(
                     AppDataCache.updateLastSyncTime()
                 }.onFailure { error ->
                     Log.e(TAG, "Metrics refresh failed", error)
-                    _weeklyData.value = WeeklyDataState.Error(error.message ?: "Failed to refresh trends")
+                    // IMPORTANT: Do NOT show error - cache will handle the display
+                    Log.d(TAG, "Metrics refresh failed, will show cached data if available")
                 }
+                
+                Log.d(TAG, "Refresh completed - showing cached data if network failed")
             } catch (e: Exception) {
                 Log.e(TAG, "Exception during refresh", e)
-                _uiState.value = WearablesUiState.Error(e.message ?: "Refresh failed")
+                // IMPORTANT: Never throw error - silently continue
+                Log.d(TAG, "Exception during refresh, will show cached data")
             } finally {
                 AppDataCache.setSyncing(false)
             }
@@ -278,8 +383,15 @@ class WearablesViewModel(
             ((calories.toFloat() / caloriesGoal) * 100).toInt()
         } else 0
         
-        val sleepHours = summary.sleep?.total ?: 0.0
+        // Extract sleep data - using time_asleep as primary metric for sleepHours
+        val sleepTimeAsleep = summary.sleep?.time_asleep ?: 0.0
+        val sleepTimeInBed = summary.sleep?.time_in_bed ?: 0.0
+        val sleepHours = sleepTimeAsleep  // Use time_asleep as the primary sleep hours metric
         val sleepChange = parseChangePercentage(summary.sleep?.change)
+        val sleepStages = summary.sleep?.stages  // Get stage breakdown
+        val sleepSessions = summary.sleep?.sessions  // Get individual sleep sessions
+        
+        Log.d(TAG, "Sleep data extracted: timeInBed=$sleepTimeInBed, timeAsleep=$sleepHours, sessions=${sleepSessions?.size ?: 0}")
         
         return HealthSummary(
             steps = steps,
@@ -290,7 +402,11 @@ class WearablesViewModel(
             sleepChange = sleepChange,
             calories = calories,
             caloriesPercentage = caloriesPercentage,
-            caloriesGoal = caloriesGoal
+            caloriesGoal = caloriesGoal,
+            sleepTimeInBed = sleepTimeInBed,
+            sleepTimeAsleep = sleepTimeAsleep,
+            sleepStages = sleepStages,
+            sleepSessions = sleepSessions
         )
     }
     

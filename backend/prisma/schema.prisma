@@ -388,6 +388,7 @@ model WearableDevice {
   battery_level      Int       @default(100)
   last_sync_time     DateTime?
   data_points_synced Int       @default(0)
+  source_version     String?   // Apple HealthKit source version (moved from MongoDB metadata)
   created_at         DateTime  @default(now())
   updated_at         DateTime  @updatedAt
 

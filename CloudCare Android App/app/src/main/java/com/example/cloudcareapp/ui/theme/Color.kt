@@ -51,3 +51,20 @@ val GradientEnd = Color(0xFF8B5CF6)
 // Device Status Colors
 val ConnectedGreen = Color(0xFF10B981)
 val DisconnectedGray = Color(0xFF94A3B8)
+
+// Apple Health Style Colors for Dark Mode
+val AppleHealthBackground = Color(0xFF000000)
+val AppleHealthSurface = Color(0xFF1C1C1E)
+val AppleHealthSurfaceVariant = Color(0xFF2C2C2E)
+
+// Apple Health Metric Colors
+val AppleStepsOrange = Color(0xFFFF6B00)
+val AppleCaloriesRed = Color(0xFFFF2D55)
+val AppleDistanceGreen = Color(0xFF00D4AA)
+val AppleSleepPurple = Color(0xFF8B5CF6)
+
+// Apple Health Sleep Stage Colors
+val AppleSleepDeep = Color(0xFF3B2FEB)
+val AppleSleepCore = Color(0xFF4F8EF7)
+val AppleSleepREM = Color(0xFF7CC0FF)
+val AppleSleepAwake = Color(0xFFFE9F41)

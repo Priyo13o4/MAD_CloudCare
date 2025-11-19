@@ -54,6 +54,39 @@ interface CloudCareApiService {
     ): AggregatedMetricsResponse
     
     /**
+     * Get accurate sleep trends with time_in_bed vs time_asleep separation.
+     * 
+     * This endpoint correctly handles Apple Health sleep data structure:
+     * - time_in_bed: From 'inBed' samples
+     * - time_asleep: Sum of 'core' + 'deep' + 'rem' (excludes 'awake')
+     * 
+     * @param patientId Patient's unique ID
+     * @param days Number of days to look back (default: 30)
+     * @return Daily sleep trends with honest data
+     */
+    @GET("wearables/metrics/sleep-trends")
+    suspend fun getSleepTrends(
+        @Query("patient_id") patientId: String,
+        @Query("days") days: Int = 30
+    ): SleepTrendsResponse
+    
+    /**
+     * Get heart rate trends with baseline positioning.
+     * 
+     * Heart rate baseline is 72 BPM (Apple Health standard).
+     * Data points can be above or below baseline for suspended bar visualization.
+     * 
+     * @param patientId Patient's unique ID
+     * @param days Number of days to look back (default: 30)
+     * @return Daily heart rate trends with min/max/average BPM
+     */
+    @GET("wearables/metrics/heart-rate-trends")
+    suspend fun getHeartRateTrends(
+        @Query("patient_id") patientId: String,
+        @Query("days") days: Int = 30
+    ): HeartRateTrendsResponse
+    
+    /**
      * Get specific metric type over date range
      * 
      * @param patientId Patient's unique ID

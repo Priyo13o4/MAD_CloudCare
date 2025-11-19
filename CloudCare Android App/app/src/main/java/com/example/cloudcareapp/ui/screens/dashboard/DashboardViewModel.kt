@@ -100,25 +100,66 @@ class DashboardViewModel(
                     prefetchWearablesData()
                 }.onFailure { error ->
                     Log.e(TAG, "Failed to fetch dashboard data", error)
-                    // Fallback to mock data if backend fails
+                    // Try to use cached data first
+                    if (AppDataCache.hasTodaySummary()) {
+                        Log.d(TAG, "Falling back to cached data after network error")
+                        val cachedSummary = AppDataCache.getTodaySummary()!!
+                        val healthSummary = mapToHealthSummary(cachedSummary.summary)
+                        
+                        val patient = mockRepository.getPatient(7)
+                        val stats = mockRepository.getDashboardStats()
+                        val activities = mockRepository.getRecentActivities()
+                        
+                        _uiState.value = DashboardUiState.Success(
+                            patient = patient,
+                            stats = stats,
+                            recentActivities = activities,
+                            healthSummary = healthSummary,
+                            isUsingRealData = true,
+                            errorMessage = "Showing cached data. ${error.message}"
+                        )
+                    } else {
+                        // Fallback to mock data if no cache available
+                        Log.d(TAG, "Using mock data as final fallback")
+                        val patient = mockRepository.getPatient(7)
+                        val stats = mockRepository.getDashboardStats()
+                        val activities = mockRepository.getRecentActivities()
+                        val mockHealthSummary = mockRepository.getHealthSummary()
+                        
+                        _uiState.value = DashboardUiState.Success(
+                            patient = patient,
+                            stats = stats,
+                            recentActivities = activities,
+                            healthSummary = mockHealthSummary,
+                            isUsingRealData = false,
+                            errorMessage = "Using cached data. ${error.message}"
+                        )
+                    }
+                    prefetchWearablesData()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception loading dashboard", e)
+                // Try cached data before showing error
+                if (AppDataCache.hasTodaySummary()) {
+                    Log.d(TAG, "Exception occurred, falling back to cached data")
+                    val cachedSummary = AppDataCache.getTodaySummary()!!
+                    val healthSummary = mapToHealthSummary(cachedSummary.summary)
+                    
                     val patient = mockRepository.getPatient(7)
                     val stats = mockRepository.getDashboardStats()
                     val activities = mockRepository.getRecentActivities()
-                    val mockHealthSummary = mockRepository.getHealthSummary()
                     
                     _uiState.value = DashboardUiState.Success(
                         patient = patient,
                         stats = stats,
                         recentActivities = activities,
-                        healthSummary = mockHealthSummary,
-                        isUsingRealData = false,
-                        errorMessage = "Using cached data. ${error.message}"
+                        healthSummary = healthSummary,
+                        isUsingRealData = true,
+                        errorMessage = "Showing cached data. Error: ${e.message}"
                     )
-                    prefetchWearablesData()
+                } else {
+                    _uiState.value = DashboardUiState.Error(e.message ?: "Unknown error")
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Exception loading dashboard", e)
-                _uiState.value = DashboardUiState.Error(e.message ?: "Unknown error")
             }
         }
     }
@@ -234,9 +275,15 @@ class DashboardViewModel(
             ((calories.toFloat() / caloriesGoal) * 100).toInt()
         } else 0
         
-        // Sleep data from backend
-        val sleepHours = summary.sleep?.total ?: 0.0
+        // Sleep data from backend - now includes time_in_bed, time_asleep, and stage breakdown
+        val sleepHours = summary.sleep?.time_asleep ?: 0.0
         val sleepChange = parseChangePercentage(summary.sleep?.change)
+        
+        // Extract new sleep data structure
+        val sleepTimeInBed = summary.sleep?.time_in_bed
+        val sleepTimeAsleep = summary.sleep?.time_asleep
+        val sleepStages = summary.sleep?.stages
+        val sleepSessions = summary.sleep?.sessions
         
         return HealthSummary(
             steps = steps,
@@ -247,7 +294,11 @@ class DashboardViewModel(
             sleepChange = sleepChange,
             calories = calories,
             caloriesPercentage = caloriesPercentage,
-            caloriesGoal = caloriesGoal
+            caloriesGoal = caloriesGoal,
+            sleepTimeInBed = sleepTimeInBed,
+            sleepTimeAsleep = sleepTimeAsleep,
+            sleepStages = sleepStages,
+            sleepSessions = sleepSessions
         )
     }
     
