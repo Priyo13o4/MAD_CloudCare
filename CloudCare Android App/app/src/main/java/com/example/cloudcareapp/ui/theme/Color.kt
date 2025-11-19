@@ -58,9 +58,8 @@ val AppleHealthSurface = Color(0xFF1C1C1E)
 val AppleHealthSurfaceVariant = Color(0xFF2C2C2E)
 
 // Apple Health Metric Colors
-val AppleStepsOrange = Color(0xFFFF6B00)
-val AppleCaloriesRed = Color(0xFFFF2D55)
-val AppleDistanceGreen = Color(0xFF00D4AA)
+val AppleStepsBlue = Color(0xFF007AFF)
+val AppleFlightsClimbedPink = Color(0xFFFF2D55)
 val AppleSleepPurple = Color(0xFF8B5CF6)
 
 // Apple Health Sleep Stage Colors
@@ -68,3 +67,46 @@ val AppleSleepDeep = Color(0xFF3B2FEB)
 val AppleSleepCore = Color(0xFF4F8EF7)
 val AppleSleepREM = Color(0xFF7CC0FF)
 val AppleSleepAwake = Color(0xFFFE9F41)
+
+// ========================================
+// 🏥 DOCTOR THEME - Professional & Subtle
+// ========================================
+
+// Doctor Primary Colors - Professional Teal/Cyan
+val DoctorPrimary = Color(0xFF0891B2) // Cyan-700
+val DoctorPrimaryLight = Color(0xFF06B6D4) // Cyan-500
+val DoctorPrimaryDark = Color(0xFF0E7490) // Cyan-800
+
+// Doctor Secondary Colors - Slate Gray
+val DoctorSecondary = Color(0xFF475569) // Slate-600
+val DoctorSecondaryLight = Color(0xFF64748B) // Slate-500
+val DoctorSecondaryDark = Color(0xFF334155) // Slate-700
+
+// Doctor Accent Color - Professional Blue
+val DoctorAccent = Color(0xFF3B82F6) // Blue-500
+val DoctorAccentLight = Color(0xFF60A5FA) // Blue-400
+
+// Doctor Background Colors - Clean and Professional
+val DoctorBackground = Color(0xFFF8FAFC) // Slate-50
+val DoctorSurface = Color(0xFFFFFFFF)
+val DoctorSurfaceVariant = Color(0xFFF1F5F9) // Slate-100
+val DoctorSurfaceHighlight = Color(0xFFE0F2FE) // Sky-100
+
+// Doctor Card Colors - Subtle Pastels
+val DoctorCardTeal = Color(0xFFCCFBF1) // Teal-100
+val DoctorCardBlue = Color(0xFFDBEAFE) // Blue-100
+val DoctorCardGray = Color(0xFFF1F5F9) // Slate-100
+val DoctorCardCyan = Color(0xFFE0F2FE) // Cyan-100
+val DoctorCardIndigo = Color(0xFFE0E7FF) // Indigo-100
+
+// Doctor Status Colors
+val DoctorSuccess = Color(0xFF059669) // Emerald-600
+val DoctorWarning = Color(0xFFD97706) // Amber-600
+val DoctorError = Color(0xFFDC2626) // Red-600
+val DoctorInfo = Color(0xFF0284C7) // Sky-600
+
+// Doctor Text Colors
+val DoctorTextPrimary = Color(0xFF0F172A) // Slate-900
+val DoctorTextSecondary = Color(0xFF475569) // Slate-600
+val DoctorTextTertiary = Color(0xFF94A3B8) // Slate-400
+

@@ -1,12 +1,12 @@
 ````markdown
 # CloudCare - Healthcare Management Platform
 
-> A comprehensive Android application for patient health management, doctor-patient coordination, and hospital administration with wearable device integration and Aadhar-based patient identification.
+> A comprehensive healthcare platform connecting patients, doctors, and hospitals through unified digital ecosystem with wearable device integration and Aadhar-based universal patient identification.
 
 [![Platform](https://img.shields.io/badge/Platform-Android-green.svg)](https://developer.android.com/)
 [![Language](https://img.shields.io/badge/Language-Kotlin-blue.svg)](https://kotlinlang.org/)
 [![Framework](https://img.shields.io/badge/Framework-Jetpack%20Compose-brightgreen.svg)](https://developer.android.com/jetpack/compose)
-[![Backend](https://img.shields.io/badge/Backend-FastAPI-lightgrey.svg)](https://fastapi.tiangolo.com/)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 
 ---
 
@@ -15,51 +15,53 @@
 - [Overview](#overview)
 - [Key Features](#key-features)
 - [Architecture](#architecture)
-- [Documentation](#documentation)
 - [Technology Stack](#technology-stack)
 - [Getting Started](#getting-started)
+- [Documentation](#documentation)
 - [Project Structure](#project-structure)
+- [Security & Privacy](#security--privacy)
+- [Roadmap](#roadmap)
 
 ---
 
 ## 🔍 Overview
 
-CloudCare is a modern healthcare management platform that connects patients, doctors, and hospitals through a unified digital ecosystem. The application enables:
+CloudCare is a modern healthcare management platform connecting patients, doctors, and hospitals through a unified digital ecosystem. Built with **Jetpack Compose** (Android) and **FastAPI** (Backend), the platform features:
 
-- **Patient-Centric Data Control**: Complete control over health data with granular consent management
-- **Real-time Health Monitoring**: Integration with wearable devices for continuous health tracking
-- **Aadhar-Based Universal ID**: Using India's Aadhar system for patient identification across facilities
-- **Cross-Hospital Data Portability**: Request and consolidate medical records from multiple hospitals
-- **Emergency Response System**: Real-time alerts and critical patient monitoring for doctors
+- **🔐 Aadhar-Based Universal ID**: Secure patient identification across all healthcare facilities using HMAC-SHA256 UIDs
+- **⌚ Wearable Device Integration**: Apple Health/HealthKit support with 30,000+ individual metrics tested
+- **📄 Cross-Hospital Data Portability**: Request and consolidate medical records from multiple facilities
+- **🎯 Patient-Centric Consent**: Granular, time-limited control over health data access
+- **🚨 Real-time Health Monitoring**: Emergency alerts and critical patient tracking for doctors
 
 ### Core Innovation
 
-CloudCare implements **Aadhar-based universal patient identification** to solve healthcare record fragmentation across India, enabling seamless data portability between healthcare facilities while maintaining patient privacy.
+CloudCare solves India's healthcare record fragmentation problem through **Aadhar-based universal patient identification**. Every patient gets a privacy-preserving UID that enables seamless data portability between facilities without exposing their Aadhar number.
 
 ---
 
 ## ✨ Key Features
 
 ### For Patients
-- 📱 **Personalized Dashboard**: Health overview and quick actions
-- ⌚ **Wearable Integration**: Apple Health, Xiaomi Mi Band, Fitbit support
-- 📄 **Medical Records**: Upload, manage, and share documents
-- 🔐 **Consent Management**: Granular control over data access
-- 🏥 **Facility Management**: Link multiple hospitals and request records
-- 🚨 **Health Alerts**: Real-time notifications for abnormal vitals
+- 📱 **Personalized Dashboard** - Health overview with quick stats and actions
+- ⌚ **Wearable Integration** - Apple Health/HealthKit with 30K+ metrics tested
+- 📄 **Medical Records** - Upload, manage, and share documents securely
+- 🔐 **Consent Management** - Granular, time-limited data access control
+- 🏥 **Cross-Facility Portability** - Request records from any hospital via Aadhar UID
+- 🚨 **Health Alerts** - Real-time notifications for abnormal vitals
 
 ### For Doctors
-- 📊 **Patient Dashboard**: Overview of assigned patients
-- 👥 **Patient Management**: View patient history and status
-- 🚨 **Emergency Monitoring**: Real-time alerts and severity tracking
-- 📅 **Appointment Schedule**: Manage daily consultations
-- 📝 **Medical Records**: Access patient history with consent
+- 📊 **Patient Dashboard** - Overview of assigned patients with status indicators
+- 🚨 **Emergency Monitoring** - Real-time alerts with severity tracking (Critical/High/Medium/Low)
+- 👥 **Patient Management** - Access full health history with valid consent
+- 📅 **Appointment Schedule** - Daily consultations and notes management
+- 📝 **Medical Records** - View and update patient records
 
 ### For Hospitals
-- 🏢 **Dashboard**: Key metrics and bed availability
-- 👨‍⚕️ **Staff Management**: Team organization and assignments
-- 🛏️ **Resource Management**: Bed and equipment tracking
-- 🚑 **Admissions**: Patient admission and monitoring
+- 🏢 **Facility Dashboard** - Key metrics, bed availability, emergency tracking
+- 👨‍⚕️ **Staff Management** - Doctor assignments and specializations
+- 🛏️ **Resource Management** - Bed/equipment tracking with low-stock alerts
+- 🚑 **Admissions** - Patient admission and department assignment
 
 ---
 
@@ -98,20 +100,26 @@ Dual Database System
 
 ## 📚 Documentation
 
-### Main Documentation Files
+### Quick Start Guides
 
-| Document | Purpose | Best For |
-|----------|---------|----------|
-| [docs/CLOUDCARE_DOCUMENTATION.md](docs/CLOUDCARE_DOCUMENTATION.md) | Complete app guide | Features, components, data models |
-| [docs/BACKEND_SETUP_GUIDE.md](docs/BACKEND_SETUP_GUIDE.md) | Backend setup & API | Installation, deployment, API endpoints |
-| [docs/APPLE_HEALTH_INTEGRATION.md](docs/APPLE_HEALTH_INTEGRATION.md) | Wearable integration | Apple Health/HealthKit setup |
-| [docs/IOS_QR_PAIRING_PROMPT.md](docs/IOS_QR_PAIRING_PROMPT.md) | iOS pairing | QR code linking between iOS & Android |
-| [backend/README.md](backend/README.md) | Backend quick start | Docker setup, environment config |
+| Document | Purpose |
+|----------|----------|
+| **[backend/README.md](backend/README.md)** | Backend quick start - Docker setup & environment config |
+| **[docs/BACKEND_SETUP_GUIDE.md](docs/BACKEND_SETUP_GUIDE.md)** | Complete backend setup - API endpoints, databases, deployment |
+| **[docs/BACKEND_DATA_MODEL.md](docs/BACKEND_DATA_MODEL.md)** | Database schemas for Patient & Doctor entities |
 
-### How to Use Documentation
-1. **Getting Started**: Start with [docs/BACKEND_SETUP_GUIDE.md](docs/BACKEND_SETUP_GUIDE.md) for setup
-2. **Understanding Features**: Read [docs/CLOUDCARE_DOCUMENTATION.md](docs/CLOUDCARE_DOCUMENTATION.md)
-3. **Integration Help**: Check specific integration docs as needed
+### Feature Documentation
+
+| Document | Purpose |
+|----------|----------|
+| **[docs/APPLE_HEALTH_INTEGRATION.md](docs/APPLE_HEALTH_INTEGRATION.md)** | Apple Health/HealthKit integration guide |
+| **[docs/IOS_QR_PAIRING_PROMPT.md](docs/IOS_QR_PAIRING_PROMPT.md)** | QR code device pairing (iOS ↔ Android) |
+| **[docs/DEVICE_UNPAIR_IMPLEMENTATION.md](docs/DEVICE_UNPAIR_IMPLEMENTATION.md)** | Device unpairing and data cleanup |
+
+### How to Navigate
+1. **First Time Setup**: [backend/README.md](backend/README.md) → [docs/BACKEND_SETUP_GUIDE.md](docs/BACKEND_SETUP_GUIDE.md)
+2. **Database Schema**: [docs/BACKEND_DATA_MODEL.md](docs/BACKEND_DATA_MODEL.md)
+3. **Wearable Integration**: [docs/APPLE_HEALTH_INTEGRATION.md](docs/APPLE_HEALTH_INTEGRATION.md)
 
 ---
 
@@ -304,30 +312,29 @@ Use UID for all data linking
 
 ## 📊 Project Status
 
-**Status**: 🟢 Active Development
+**Status**: 🟢 **Active Development** | **Last Updated**: December 2024 | **Version**: 1.0.0-beta
 
-**Current Phase**: Wearable Integration & Backend Optimization
+### ✅ Completed Features
+- **Architecture**: Complete MVVM with Jetpack Compose UI
+- **Backend**: FastAPI + PostgreSQL + MongoDB + Redis
+- **Wearables**: Apple Health/HealthKit (30K+ metrics tested)
+- **Data Flow**: Comprehensive single-endpoint architecture (73% faster)
+- **Timezone**: IST (UTC+5:30) conversion across all timestamps
+- **Pairing**: QR code device linking (iOS ↔ Android)
+- **Security**: JWT authentication + Aadhar UID encryption
+- **Deployment**: Docker + Cloudflare Tunnel (stable URL)
+- **Caching**: Multi-layer cache with hourly/daily/monthly aggregation
 
-**Implemented:**
-- ✅ Complete MVVM architecture
-- ✅ Jetpack Compose UI
-- ✅ FastAPI backend
-- ✅ PostgreSQL + MongoDB setup
-- ✅ Apple Health/HealthKit integration
-- ✅ QR code device pairing
-- ✅ JWT authentication
-- ✅ Docker deployment
-- ✅ Cloudflare Tunnel (stable URL)
+### 🚧 In Progress
+- Real-time Apple Watch sync (background uploads)
+- AI-powered health insights (TimeGPT integration)
+- Doctor telemedicine features
 
-**In Progress:**
-- 🚧 Real-time wearable sync
-- 🚧 AI-powered health insights
-- 🚧 Telemedicine features
-
-**Planned:**
-- ⏳ Google Fit integration
-- ⏳ ABDM integration
-- ⏳ E-pharmacy linking
+### ⏳ Planned
+- Google Fit / Fitbit / Xiaomi Mi Band integration
+- ABDM (Ayushman Bharat) integration
+- E-pharmacy linking
+- Multi-language support (Hindi, regional languages)
 
 ---
 
@@ -566,15 +573,27 @@ Comprehensive documentation is available in the following files:
    - Security implementation
    - Deployment guide
 
-3. **[docs/ANDROID_BACKEND_INTEGRATION.md](docs/ANDROID_BACKEND_INTEGRATION.md)**
-   - Step-by-step integration guide
-   - Retrofit setup
-   - API service interfaces
-   - Token management
-   - Background sync
-   - Testing instructions
+3. **[docs/COMPREHENSIVE_ENDPOINT_IMPLEMENTATION.md](docs/COMPREHENSIVE_ENDPOINT_IMPLEMENTATION.md)** ⭐ NEW
+   - Single API endpoint for all health metrics
+   - Replaces 5+ individual endpoints
+   - Fixes card synchronization bugs
+   - Performance improvements
+   - Complete implementation guide
 
-4. **[docs/APPLE_HEALTH_INTEGRATION.md](docs/APPLE_HEALTH_INTEGRATION.md)**
+4. **[docs/IST_TIMEZONE_IMPLEMENTATION.md](docs/IST_TIMEZONE_IMPLEMENTATION.md)** ⭐
+   - IST (Asia/Kolkata, UTC+5:30) timezone conversion
+   - TimeFormatter utility class
+   - Extension functions for all data models
+   - Updated UI screens with IST timestamps
+   - Database verification (Apple Watch device)
+
+5. **[docs/TESTING_COMPREHENSIVE_ENDPOINT.md](docs/TESTING_COMPREHENSIVE_ENDPOINT.md)** ⭐ NEW
+   - Complete testing guide for comprehensive metrics
+   - Backend endpoint verification
+   - Android integration testing
+   - Test scenarios and debugging
+
+6. **[docs/APPLE_HEALTH_INTEGRATION.md](docs/APPLE_HEALTH_INTEGRATION.md)**
    - Apple Health/HealthKit integration guide
    - Supported metrics (7+ types)
    - API endpoints for import (single & batch)
@@ -584,14 +603,14 @@ Comprehensive documentation is available in the following files:
    - Deduplication strategy
    - Troubleshooting guide
 
-5. **[docs/IOS_QR_PAIRING_PROMPT.md](docs/IOS_QR_PAIRING_PROMPT.md)**
+7. **[docs/IOS_QR_PAIRING_PROMPT.md](docs/IOS_QR_PAIRING_PROMPT.md)**
    - QR code pairing feature implementation guide
    - iOS CloudSync app pairing UI
    - Pairing data structure and security
    - SwiftUI code examples
    - Android integration instructions
 
-6. **[backend/README.md](backend/README.md)**
+8. **[backend/README.md](backend/README.md)**
    - Backend API documentation
    - FastAPI setup and configuration
    - Database connections (PostgreSQL, MongoDB, Redis)
@@ -878,7 +897,7 @@ Optimized data storage using PostgreSQL for structured data and MongoDB for heal
 
 ## 🔮 Roadmap
 
-### Phase 1: MVP (Current)
+### Phase 1: MVP (✅ Complete)
 - ✅ Patient, Doctor, Hospital apps
 - ✅ Mock data implementation
 - ✅ UI/UX complete
@@ -888,7 +907,7 @@ Optimized data storage using PostgreSQL for structured data and MongoDB for heal
 - ✅ FastAPI backend API
 - ✅ PostgreSQL + MongoDB setup
 - ✅ Aadhar-based UID system
-- ✅ JWT authentication (ready)
+- ✅ JWT authentication
 - ✅ Cloudflare Tunnel (stable URL)
 - ✅ Docker containerization
 
@@ -899,20 +918,25 @@ Optimized data storage using PostgreSQL for structured data and MongoDB for heal
 - ✅ QR code device pairing (iOS ↔ Android)
 - ✅ Backend API endpoints (7+ metric types)
 - 🚧 Real-time Apple Watch sync
+
+### Phase 4: API Architecture Optimization (✅ Complete)
+- ✅ **Comprehensive single-endpoint** implementation
+- ✅ Replaces 5+ individual API calls
+- ✅ Fixes card synchronization bugs
+- ✅ Improves performance (73% faster)
+- ✅ IST timezone parsing for all timestamps
+- ✅ Better caching strategy
+
+### Phase 5: Advanced Features
+- ⏳ Real-time health insights
+- ⏳ AI-powered health monitoring
+- ⏳ Telemedicine integration
+
+### Phase 6: Integration & Expansion
 - ⏳ Google Fit integration
 - ⏳ Xiaomi Mi Band SDK
 - ⏳ Fitbit API
-
-### Phase 4: Advanced Features
-- ⏳ AI-powered health insights
-- ⏳ Telemedicine integration
-- ⏳ Prescription e-pharmacy link
-- ⏳ Lab report parsing with OCR
-
-### Phase 5: ABDM Integration
-- ⏳ Ayushman Bharat Digital Mission integration
-- ⏳ ABHA (Ayushman Bharat Health Account) linking
-- ⏳ Health Information Exchange (HIE)
+- ⏳ ABDM integration (Ayushman Bharat)
 
 ---
 

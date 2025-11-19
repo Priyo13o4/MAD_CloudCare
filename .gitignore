@@ -214,14 +214,6 @@ test_server.py
 .swp
 .swo
 
-# ==========================================
-# Documentation (Keep only essential docs)
-# ==========================================
-# Status tracking documents (not needed in repo)
-APPLE_HEALTH_COMPLETE.md
-BACKEND_IMPLEMENTATION_COMPLETE.md
-DOCUMENTATION_INDEX.md
-SETUP.md
 
 # Android app progress docs (redundant)
 CloudCare Android App/ALL_BUTTONS_LINKED.md

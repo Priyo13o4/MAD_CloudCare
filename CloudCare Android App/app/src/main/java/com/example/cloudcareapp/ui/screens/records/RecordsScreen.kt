@@ -16,14 +16,28 @@ import com.example.cloudcareapp.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecordsScreen() {
+fun RecordsScreen(
+    onNavigateToUpload: () -> Unit = {}
+) {
     var showError by remember { mutableStateOf(true) }
     var selectedTab by remember { mutableStateOf(0) }
     
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onNavigateToUpload,
+                containerColor = Primary,
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Filled.UploadFile, contentDescription = "Upload Document")
+            }
+        }
+    ) { innerPadding ->
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Background)
+            .padding(innerPadding)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -155,5 +169,6 @@ fun RecordsScreen() {
                 }
             }
         }
+    }
     }
 }

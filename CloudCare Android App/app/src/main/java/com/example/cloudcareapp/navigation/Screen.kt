@@ -17,6 +17,7 @@ sealed class Screen(val route: String) {
     object Profile : Screen("profile")
     object Notifications : Screen("notifications")
     object EditProfile : Screen("edit_profile")
+    object DocumentUpload : Screen("document_upload")
     
     // Doctor Screens
     object DoctorDashboard : Screen("doctor_dashboard")
@@ -24,12 +25,16 @@ sealed class Screen(val route: String) {
     object DoctorEmergency : Screen("doctor_emergency")
     object DoctorSchedule : Screen("doctor_schedule")
     object DoctorRecords : Screen("doctor_records")
+    object DoctorProfile : Screen("doctor_profile")
+    object DoctorNotifications : Screen("doctor_notifications")
+    object DoctorQRScanner : Screen("doctor_qr_scanner")
     
     // Hospital Screens
     object HospitalDashboard : Screen("hospital_dashboard")
     object HospitalStaff : Screen("hospital_staff")
     object HospitalResources : Screen("hospital_resources")
     object HospitalAdmissions : Screen("hospital_admissions")
+    object HospitalProfile : Screen("hospital_profile")
     
     // Common Screens
     object Settings : Screen("settings")

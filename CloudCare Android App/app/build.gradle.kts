@@ -85,6 +85,10 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.3.1")
     implementation("androidx.camera:camera-view:1.3.1")
     
+    // ZXing for QR code generation
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.google.zxing:android-core:3.3.0")
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

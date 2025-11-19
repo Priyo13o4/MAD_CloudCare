@@ -14,6 +14,7 @@ data class HealthMetric(
     val end_date: String?,
     val source_app: String?,  // Device name from iOS (e.g., "Priyodip's Apple Watch")
     val device_id: String?,
+    val sleep_category: String? = null, // Added for sleep analysis
     @Deprecated("Removed for data normalization. Device info now in PostgreSQL wearable_devices table")
     val metadata: Map<String, Any>? = null  // Deprecated - contains redundant data
 )
@@ -120,7 +121,8 @@ data class AggregatedDataPoint(
     val avg: Double,
     val min: Double,
     val max: Double,
-    val count: Int
+    val count: Int,
+    val unit: String? = null
 )
 
 /**
@@ -134,3 +136,74 @@ data class MetricsByTypeResponse(
     val count: Int,
     val metrics: List<HealthMetric>
 )
+
+/**
+ * ========================================
+ * COMPREHENSIVE METRICS RESPONSE
+ * ========================================
+ * 
+ * Single API call that returns ALL health data:
+ * - Today's summary for all metrics
+ * - Time-series data for charts (steps, calories, heart rate, sleep, etc.)
+ * - Device sync information
+ * 
+ * Use this instead of multiple individual API calls for better performance!
+ */
+
+/**
+ * Time-series data point (simplified for charts)
+ */
+data class TimeSeriesDataPoint(
+    val date: String,
+    val total: Double? = null,
+    val avg: Double? = null,
+    val min: Double? = null,
+    val max: Double? = null,
+    val count: Int? = null,
+    val unit: String? = null,
+    // Heart rate specific
+    val bpm: Double? = null,
+    val min_bpm: Double? = null,
+    val max_bpm: Double? = null,
+    // Sleep specific
+    val time_in_bed: Double? = null,
+    val time_asleep: Double? = null,
+    val stages: SleepStages? = null
+)
+
+/**
+ * All time-series data organized by metric type
+ */
+data class TimeSeriesData(
+    val steps: List<TimeSeriesDataPoint> = emptyList(),
+    val calories: List<TimeSeriesDataPoint> = emptyList(),
+    val heart_rate: List<TimeSeriesDataPoint> = emptyList(),
+    val sleep: List<TimeSeriesDataPoint> = emptyList(),
+    val flights_climbed: List<TimeSeriesDataPoint> = emptyList(),
+    // Hourly data for daily view (last 24 hours)
+    val steps_hourly: List<TimeSeriesDataPoint> = emptyList(),
+    val calories_hourly: List<TimeSeriesDataPoint> = emptyList(),
+    val heart_rate_hourly: List<TimeSeriesDataPoint> = emptyList(),
+    val distance_hourly: List<TimeSeriesDataPoint> = emptyList(),
+    val distance: List<TimeSeriesDataPoint> = emptyList()
+)
+
+/**
+ * Device synchronization information
+ */
+data class DeviceInfo(
+    val last_sync: String?,
+    val total_metrics: Int
+)
+
+/**
+ * Comprehensive metrics response - everything in one API call!
+ */
+data class ComprehensiveMetricsResponse(
+    val patient_id: String,
+    val request_timestamp: String,
+    val summary: Map<String, MetricSummary>,  // Today's summary for all metrics
+    val time_series: TimeSeriesData,          // Historical data for charts
+    val device_info: DeviceInfo               // Sync status
+)
+

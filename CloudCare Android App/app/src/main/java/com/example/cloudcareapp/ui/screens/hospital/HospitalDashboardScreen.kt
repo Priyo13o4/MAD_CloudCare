@@ -14,28 +14,35 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.cloudcareapp.ui.components.CommonTopAppBar
 import com.example.cloudcareapp.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HospitalDashboardScreen(
     onLogout: () -> Unit,
+    onMenuClick: (() -> Unit)? = null,
+    onNotificationClick: (() -> Unit)? = null,
+    onProfileClick: (() -> Unit)? = null,
     onNavigateToStaff: () -> Unit = {},
     onNavigateToResources: () -> Unit = {},
     onNavigateToAdmissions: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Hospital Dashboard") },
-                actions = {
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.Filled.Logout, contentDescription = "Logout")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Success
-                )
+            CommonTopAppBar(
+                title = "Hospital Dashboard",
+                onMenuClick = onMenuClick,
+                notificationCount = 2,
+                onNotificationClick = onNotificationClick,
+                onProfileClick = onProfileClick,
+                showQRScanner = false,
+                showNotifications = true,
+                showProfile = true,
+                showSettingsMenu = false,
+                backgroundColor = Success,
+                onLogoutClick = onLogout,
+                isDoctorTheme = false
             )
         }
     ) { paddingValues ->

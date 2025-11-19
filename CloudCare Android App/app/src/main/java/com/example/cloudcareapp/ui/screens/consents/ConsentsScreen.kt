@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cloudcareapp.data.model.*
 import com.example.cloudcareapp.ui.theme.*
+import com.example.cloudcareapp.utils.TimeFormatter
 
 @Composable
 fun ConsentsScreen(
@@ -125,7 +126,7 @@ fun ConsentCard(
                 }
                 
                 Chip(
-                    text = consent.timestamp,
+                    text = TimeFormatter.getRelativeTime(consent.timestamp),
                     color = TextTertiary
                 )
             }
@@ -200,7 +201,7 @@ fun ApprovedConsentCard(consent: Consent) {
             }
             
             Text(
-                text = consent.timestamp,
+                text = TimeFormatter.parseUtcToIst(consent.timestamp),
                 style = MaterialTheme.typography.bodySmall,
                 color = TextSecondary
             )

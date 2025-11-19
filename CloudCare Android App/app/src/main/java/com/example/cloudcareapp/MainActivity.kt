@@ -30,18 +30,24 @@ import com.example.cloudcareapp.ui.screens.consents.ConsentsScreen
 import com.example.cloudcareapp.ui.screens.dashboard.DashboardScreen
 import com.example.cloudcareapp.ui.screens.doctor.DoctorDashboardScreen
 import com.example.cloudcareapp.ui.screens.doctor.DoctorEmergencyScreen
+import com.example.cloudcareapp.ui.screens.doctor.DoctorNotificationsScreen
 import com.example.cloudcareapp.ui.screens.doctor.DoctorPatientsScreen
+import com.example.cloudcareapp.ui.screens.doctor.DoctorProfileScreen
+import com.example.cloudcareapp.ui.screens.doctor.DoctorQRScannerScreen
 import com.example.cloudcareapp.ui.screens.doctor.DoctorRecordsScreen
 import com.example.cloudcareapp.ui.screens.doctor.DoctorScheduleScreen
+import com.example.cloudcareapp.ui.screens.records.DocumentUploadScreen
 import com.example.cloudcareapp.ui.screens.facilities.FacilitiesScreen
 import com.example.cloudcareapp.ui.screens.help.HelpSupportScreen
 import com.example.cloudcareapp.ui.screens.hospital.HospitalAdmissionsScreen
 import com.example.cloudcareapp.ui.screens.hospital.HospitalDashboardScreen
+import com.example.cloudcareapp.ui.screens.hospital.HospitalProfileScreen
 import com.example.cloudcareapp.ui.screens.hospital.HospitalResourcesScreen
 import com.example.cloudcareapp.ui.screens.hospital.HospitalStaffScreen
 import com.example.cloudcareapp.ui.screens.notifications.NotificationsScreen
 import com.example.cloudcareapp.ui.screens.privacy.PrivacySecurityScreen
 import com.example.cloudcareapp.ui.screens.profile.EditProfileScreen
+import com.example.cloudcareapp.ui.screens.profile.PatientProfileScreen
 import com.example.cloudcareapp.ui.screens.profile.ProfileScreen
 import com.example.cloudcareapp.ui.screens.records.RecordsScreen
 import com.example.cloudcareapp.ui.screens.scanshare.ScanShareScreen
@@ -327,6 +333,12 @@ fun CloudCareApp() {
             composable(Screen.DoctorDashboard.route) {
                 DoctorDashboardScreen(
                     onLogout = handleLogout,
+                    onMenuClick = {
+                        scope.launch { 
+                            if (drawerState.isOpen) drawerState.close()
+                            else drawerState.open()
+                        }
+                    },
                     onNavigateToPatients = {
                         navController.navigate(Screen.DoctorPatients.route)
                     },
@@ -338,6 +350,18 @@ fun CloudCareApp() {
                     },
                     onNavigateToRecords = {
                         navController.navigate(Screen.DoctorRecords.route)
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate(Screen.DoctorProfile.route)
+                    },
+                    onNavigateToNotifications = {
+                        navController.navigate(Screen.DoctorNotifications.route)
+                    },
+                    onNavigateToSettings = {
+                        navController.navigate(Screen.Settings.route)
+                    },
+                    onNavigateToQRScanner = {
+                        navController.navigate(Screen.DoctorQRScanner.route)
                     }
                 )
             }
@@ -346,6 +370,18 @@ fun CloudCareApp() {
             composable(Screen.HospitalDashboard.route) {
                 HospitalDashboardScreen(
                     onLogout = handleLogout,
+                    onMenuClick = {
+                        scope.launch { 
+                            if (drawerState.isOpen) drawerState.close()
+                            else drawerState.open()
+                        }
+                    },
+                    onNotificationClick = {
+                        navController.navigate(Screen.Notifications.route)
+                    },
+                    onProfileClick = {
+                        navController.navigate(Screen.HospitalProfile.route)
+                    },
                     onNavigateToStaff = {
                         navController.navigate(Screen.HospitalStaff.route)
                     },
@@ -365,7 +401,11 @@ fun CloudCareApp() {
             }
             
             composable(Screen.Records.route) {
-                RecordsScreen()
+                RecordsScreen(
+                    onNavigateToUpload = {
+                        navController.navigate(Screen.DocumentUpload.route)
+                    }
+                )
             }
             
             composable(Screen.ScanShare.route) {
@@ -460,6 +500,30 @@ fun CloudCareApp() {
                 )
             }
             
+            composable(Screen.DoctorProfile.route) {
+                DoctorProfileScreen(
+                    onBackClick = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            
+            composable(Screen.DoctorNotifications.route) {
+                DoctorNotificationsScreen(
+                    onBackClick = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            
+            composable(Screen.DoctorQRScanner.route) {
+                DoctorQRScannerScreen(
+                    onBackClick = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            
             // Hospital Detail Screens
             composable(Screen.HospitalStaff.route) {
                 HospitalStaffScreen(
@@ -479,6 +543,14 @@ fun CloudCareApp() {
             
             composable(Screen.HospitalAdmissions.route) {
                 HospitalAdmissionsScreen(
+                    onBackClick = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            
+            composable(Screen.HospitalProfile.route) {
+                HospitalProfileScreen(
                     onBackClick = {
                         navController.popBackStack()
                     }
@@ -512,6 +584,14 @@ fun CloudCareApp() {
             
             composable(Screen.PrivacySecurity.route) {
                 PrivacySecurityScreen(
+                    onBackClick = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            
+            composable(Screen.DocumentUpload.route) {
+                DocumentUploadScreen(
                     onBackClick = {
                         navController.popBackStack()
                     }

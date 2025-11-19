@@ -24,6 +24,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.cloudcareapp.ui.screens.wearables.WearablesViewModel
 import com.example.cloudcareapp.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -38,6 +40,9 @@ fun PatientLoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+    
+    // Initialize cache on successful login
+    val wearablesViewModel: WearablesViewModel = viewModel()
     
     Scaffold(
         topBar = {
@@ -203,6 +208,10 @@ fun PatientLoginScreen(
                         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                             isLoading = false
                             Toast.makeText(context, "Login successful!", Toast.LENGTH_SHORT).show()
+                            
+                            // ✅ Initialize cache on successful login
+                            wearablesViewModel.initializeCache(forceRefresh = false)
+                            
                             onLoginSuccess()
                         }, 1500)
                     } else {

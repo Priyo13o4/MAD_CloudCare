@@ -104,7 +104,13 @@ fun DateLabels(
             if (index == 0 || index == dates.lastIndex || index % step == 0) {
                 // Limit total labels to avoid overcrowding if logic allows too many
                 val label = try {
-                    date.split("-").last()
+                    if (date.contains(" ")) {
+                        // It's a timestamp (e.g., "2025-11-15 14:00") -> Show time "14:00"
+                        date.split(" ").last().substring(0, 5)
+                    } else {
+                        // It's a date (e.g., "2025-11-15") -> Show day "15"
+                        date.split("-").last()
+                    }
                 } catch (e: Exception) {
                     date
                 }
@@ -114,7 +120,7 @@ fun DateLabels(
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.Gray,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.width(24.dp) // Fixed width for alignment
+                    modifier = Modifier.width(32.dp) // Slightly wider for time
                 )
             }
         }

@@ -34,6 +34,47 @@ class HealthMetricsRepository(
     }
     
     /**
+     * ========================================
+     * 🚀 COMPREHENSIVE METRICS - ALL DATA IN ONE CALL
+     * ========================================
+     * 
+     * Get ALL health data in a single API call:
+     * - Today's summary for all metrics (steps, calories, heart rate, sleep, etc.)
+     * - Time-series data for charts (last N days)
+     * - Device sync information
+     * 
+     * This REPLACES multiple individual API calls (getTodaySummary, getAggregatedMetrics, 
+     * getSleepTrends, getHeartRateTrends) and fixes card synchronization bugs.
+     * 
+     * Benefits:
+     * - Single network call = faster loading
+     * - No race conditions between cards
+     * - Better caching (all data at once)
+     * - Simpler state management in ViewModel
+     * 
+     * @param patientId Patient's unique ID
+     * @param days Number of days to fetch time-series data (default: 30)
+     * @return Result containing comprehensive metrics or error
+     */
+    suspend fun getComprehensiveMetrics(
+        patientId: String,
+        days: Int = 30
+    ): Result<ComprehensiveMetricsResponse> = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Fetching comprehensive metrics for patient: $patientId (last $days days)")
+            val response = apiService.getComprehensiveMetrics(patientId, days)
+            Log.d(TAG, "Successfully fetched comprehensive metrics - " +
+                "Summary: ${response.summary.size} types, " +
+                "Device: ${response.device_info.total_metrics} total metrics, " +
+                "Last sync: ${response.device_info.last_sync}")
+            Result.success(response)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch comprehensive metrics", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
      * Get recent health metrics for the last N hours
      * 
      * @param patientId Patient's unique ID
@@ -213,6 +254,26 @@ class HealthMetricsRepository(
             Result.success(response)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to pair device", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Unpair a wearable device
+     * 
+     * @param pairingId The pairing ID to unpair
+     * @return Result indicating success or error
+     */
+    suspend fun unpairDevice(
+        pairingId: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            Log.d(TAG, "Unpairing device: $pairingId")
+            apiService.unpairDevice(pairingId)
+            Log.d(TAG, "Successfully unpaired device: $pairingId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to unpair device", e)
             Result.failure(e)
         }
     }

@@ -987,3 +987,470 @@ async def get_heart_rate_trends(patient_id: str, days: int = 30):
             detail=f"Failed to retrieve heart rate trends: {str(e)}"
         )
 
+
+@router.get("/metrics/comprehensive")
+async def get_comprehensive_metrics(
+    patient_id: str,
+    days: int = 30
+):
+    """
+    Get ALL health metrics in a single comprehensive response.
+    
+    **🚀 RECOMMENDED ENDPOINT - Use this instead of individual metric endpoints!**
+    
+    This endpoint returns everything the Android app needs in one API call:
+    - Today's summary (steps, calories, heart rate, sleep, etc.)
+    - Time-series data for all metric types (steps, calories, distance, etc.)
+    - Sleep trends with stage breakdown
+    - Heart rate trends with min/max/avg
+    - Aggregated data ready for charts
+    
+    Query Parameters:
+    - patient_id: Patient's unique ID (required)
+    - days: Number of days to look back for trends (default: 30)
+    
+    Returns:
+    {
+        "patient_id": "...",
+        "request_timestamp": "2025-11-19T10:20:30Z",
+        "summary": {
+            "date": "2025-11-19",
+            "steps": {"total": 8523, "change": "+12%"},
+            "calories": {"total": 2145, "change": "+8%"},
+            "heart_rate": {"avg": 75, "min": 62, "max": 145, "change": "-3%"},
+            "distance": {"total": 6.2, "unit": "km", "change": "+15%"},
+            "sleep": {
+                "time_in_bed": 7.5,
+                "time_asleep": 6.8,
+                "stages": {"awake": 0.5, "rem": 1.2, "core": 4.1, "deep": 1.5},
+                "sessions": [...]
+            }
+        },
+        "time_series": {
+            "steps": [{"date": "2025-11-18", "total": 7890, "avg": 7890}, ...],
+            "calories": [...],
+            "distance": [...],
+            "heart_rate": [...],
+            "sleep": [...],
+            "flights_climbed": [...]
+        },
+        "device_info": {
+            "last_sync": "2025-11-19T05:50:01.236Z",
+            "total_metrics": 30096
+        }
+    }
+    """
+    try:
+        from app.core.database import get_mongodb
+        
+        mongodb = get_mongodb()
+        
+        # Get today's summary
+        now = datetime.utcnow()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        yesterday_start = today_start - timedelta(days=1)
+        since = now - timedelta(days=days)
+        
+        logger.info(
+            f"Fetching comprehensive metrics for patient {patient_id}, days={days}"
+        )
+        
+        # 1. Get Today's Summary
+        today_summary_pipeline = [
+            {
+                "$match": {
+                    "patient_id": patient_id,
+                    "timestamp": {"$gte": today_start}
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$metric_type",
+                    "total": {"$sum": "$value"},
+                    "avg": {"$avg": "$value"},
+                    "min": {"$min": "$value"},
+                    "max": {"$max": "$value"},
+                    "count": {"$sum": 1}
+                }
+            }
+        ]
+        
+        yesterday_summary_pipeline = [
+            {
+                "$match": {
+                    "patient_id": patient_id,
+                    "timestamp": {
+                        "$gte": yesterday_start,
+                        "$lt": today_start
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$metric_type",
+                    "total": {"$sum": "$value"},
+                    "avg": {"$avg": "$value"}
+                }
+            }
+        ]
+        
+        today_results = await mongodb.health_metrics.aggregate(today_summary_pipeline).to_list(length=100)
+        yesterday_results = await mongodb.health_metrics.aggregate(yesterday_summary_pipeline).to_list(length=100)
+        
+        # Organize summaries
+        today_data = {item["_id"]: item for item in today_results}
+        yesterday_data = {item["_id"]: item for item in yesterday_results}
+        
+        # Build today's summary
+        summary = {}
+        
+        # Steps
+        if "steps" in today_data:
+            change = None
+            if "steps" in yesterday_data and yesterday_data["steps"]["total"] > 0:
+                change_pct = ((today_data["steps"]["total"] - yesterday_data["steps"]["total"]) / yesterday_data["steps"]["total"]) * 100
+                change = f"{'+' if change_pct > 0 else ''}{round(change_pct)}%"
+            summary["steps"] = {
+                "total": round(today_data["steps"]["total"]),
+                "change": change
+            }
+        else:
+            summary["steps"] = {"total": 0, "change": None}
+        
+        # Calories
+        if "calories" in today_data:
+            change = None
+            if "calories" in yesterday_data and yesterday_data["calories"]["total"] > 0:
+                change_pct = ((today_data["calories"]["total"] - yesterday_data["calories"]["total"]) / yesterday_data["calories"]["total"]) * 100
+                change = f"{'+' if change_pct > 0 else ''}{round(change_pct)}%"
+            summary["calories"] = {
+                "total": round(today_data["calories"]["total"]),
+                "change": change
+            }
+        else:
+            summary["calories"] = {"total": 0, "change": None}
+        
+        # Heart Rate
+        if "heart_rate" in today_data:
+            change = None
+            if "heart_rate" in yesterday_data and yesterday_data["heart_rate"]["avg"] > 0:
+                change_pct = ((today_data["heart_rate"]["avg"] - yesterday_data["heart_rate"]["avg"]) / yesterday_data["heart_rate"]["avg"]) * 100
+                change = f"{'+' if change_pct > 0 else ''}{round(change_pct)}%"
+            summary["heart_rate"] = {
+                "avg": round(today_data["heart_rate"]["avg"], 1),
+                "min": round(today_data["heart_rate"]["min"], 1),
+                "max": round(today_data["heart_rate"]["max"], 1),
+                "change": change
+            }
+        else:
+            summary["heart_rate"] = {"avg": 0, "min": 0, "max": 0, "change": None}
+        
+        # Distance
+        if "distance" in today_data:
+            change = None
+            if "distance" in yesterday_data and yesterday_data["distance"]["total"] > 0:
+                change_pct = ((today_data["distance"]["total"] - yesterday_data["distance"]["total"]) / yesterday_data["distance"]["total"]) * 100
+                change = f"{'+' if change_pct > 0 else ''}{round(change_pct)}%"
+            summary["distance"] = {
+                "total": round(today_data["distance"]["total"] / 1000, 2),  # Convert to km
+                "unit": "km",
+                "change": change
+            }
+        else:
+            summary["distance"] = {"total": 0, "unit": "km", "change": None}
+        
+        # Flights Climbed
+        if "flights_climbed" in today_data:
+            summary["flights_climbed"] = {
+                "total": round(today_data["flights_climbed"]["total"])
+            }
+        else:
+            summary["flights_climbed"] = {"total": 0}
+        
+        # Sleep (get detailed session data)
+        sleep_data = await WearablesService._get_sleep_sessions(patient_id, today_start)
+        summary["sleep"] = {
+            "time_in_bed": sleep_data["time_in_bed_hours"],
+            "time_asleep": sleep_data["time_asleep_hours"],
+            "unit": "hours",
+            "change": None,
+            "stages": sleep_data["stages"],
+            "sessions": sleep_data["sessions"]
+        }
+        
+        # 2. Get Time-Series Data for All Metrics
+        time_series = {}
+        
+        # Aggregation pipeline templates
+        def get_daily_aggregation_pipeline(metric_type, use_sum=True):
+            return [
+                {
+                    "$match": {
+                        "patient_id": patient_id,
+                        "metric_type": metric_type,
+                        "timestamp": {"$gte": since}
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
+                        "total": {"$sum": "$value"} if use_sum else {"$avg": "$value"},
+                        "avg": {"$avg": "$value"},
+                        "min": {"$min": "$value"},
+                        "max": {"$max": "$value"},
+                        "count": {"$sum": 1}
+                    }
+                },
+                {
+                    "$sort": {"_id": 1}
+                }
+            ]
+        
+        # Hourly aggregation pipeline (for last 24 hours)
+        def get_hourly_aggregation_pipeline(metric_type, use_sum=True):
+            one_day_ago = now - timedelta(days=1)
+            return [
+                {
+                    "$match": {
+                        "patient_id": patient_id,
+                        "metric_type": metric_type,
+                        "timestamp": {"$gte": one_day_ago}
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": {
+                            "$dateToString": {
+                                "format": "%Y-%m-%d %H:00",
+                                "date": "$timestamp"
+                            }
+                        },
+                        "total": {"$sum": "$value"} if use_sum else {"$avg": "$value"},
+                        "avg": {"$avg": "$value"},
+                        "min": {"$min": "$value"},
+                        "max": {"$max": "$value"},
+                        "count": {"$sum": 1}
+                    }
+                },
+                {
+                    "$sort": {"_id": 1}
+                }
+            ]
+        
+        # Steps
+        steps_data = await mongodb.health_metrics.aggregate(
+            get_daily_aggregation_pipeline("steps", use_sum=True)
+        ).to_list(length=None)
+        time_series["steps"] = [
+            {
+                "date": item["_id"],
+                "total": round(item["total"]),
+                "avg": round(item["avg"]),
+                "count": item["count"]
+            }
+            for item in steps_data
+        ]
+        
+        # Calories
+        calories_data = await mongodb.health_metrics.aggregate(
+            get_daily_aggregation_pipeline("calories", use_sum=True)
+        ).to_list(length=None)
+        time_series["calories"] = [
+            {
+                "date": item["_id"],
+                "total": round(item["total"]),
+                "avg": round(item["avg"]),
+                "count": item["count"]
+            }
+            for item in calories_data
+        ]
+        
+        # Distance (daily aggregation for trends)
+        distance_data = await mongodb.health_metrics.aggregate(
+            get_daily_aggregation_pipeline("distance", use_sum=True)
+        ).to_list(length=None)
+        time_series["distance"] = [
+            {
+                "date": item["_id"],
+                "total": round(item["total"] / 1000, 2),  # Convert to km
+                "unit": "km",
+                "count": item["count"]
+            }
+            for item in distance_data
+        ]
+        
+        # Distance Hourly (for 24-hour view with cache optimization)
+        # ✅ NEW: Hourly distance aggregation included in comprehensive response
+        # This allows Android to display hourly distance data WITHOUT additional API calls
+        hourly_distance_data = await mongodb.health_metrics.aggregate(
+            get_hourly_aggregation_pipeline("distance", use_sum=True)
+        ).to_list(length=None)
+        time_series["distance_hourly"] = [
+            {
+                "date": item["_id"],
+                "total": round(item["total"] / 1000, 2),  # Convert to km
+                "unit": "km",
+                "count": item["count"]
+            }
+            for item in hourly_distance_data
+        ]
+        
+        # Hourly steps for daily view (last 24 hours)
+        hourly_steps_data = await mongodb.health_metrics.aggregate(
+            get_hourly_aggregation_pipeline("steps", use_sum=True)
+        ).to_list(length=None)
+        time_series["steps_hourly"] = [
+            {
+                "date": item["_id"],
+                "total": round(item["total"]),
+                "avg": round(item["avg"]),
+                "count": item["count"]
+            }
+            for item in hourly_steps_data
+        ]
+        
+        # Hourly calories for daily view (last 24 hours)
+        hourly_calories_data = await mongodb.health_metrics.aggregate(
+            get_hourly_aggregation_pipeline("calories", use_sum=True)
+        ).to_list(length=None)
+        time_series["calories_hourly"] = [
+            {
+                "date": item["_id"],
+                "total": round(item["total"]),
+                "avg": round(item["avg"]),
+                "count": item["count"]
+            }
+            for item in hourly_calories_data
+        ]
+        
+        # Hourly heart rate for daily view (last 24 hours)
+        hourly_heart_rate_data = await mongodb.health_metrics.aggregate(
+            get_hourly_aggregation_pipeline("heart_rate", use_sum=False)
+        ).to_list(length=None)
+        time_series["heart_rate_hourly"] = [
+            {
+                "date": item["_id"],
+                "bpm": round(item["avg"], 1),
+                "min_bpm": round(item["min"], 1),
+                "max_bpm": round(item["max"], 1),
+                "count": item["count"]
+            }
+            for item in hourly_heart_rate_data
+        ]
+        
+        # Heart Rate
+        heart_rate_data = await mongodb.health_metrics.aggregate(
+            get_daily_aggregation_pipeline("heart_rate", use_sum=False)
+        ).to_list(length=None)
+        time_series["heart_rate"] = [
+            {
+                "date": item["_id"],
+                "bpm": round(item["avg"], 1),
+                "min_bpm": round(item["min"], 1),
+                "max_bpm": round(item["max"], 1),
+                "count": item["count"]
+            }
+            for item in heart_rate_data
+        ]
+        
+        # Flights Climbed
+        flights_data = await mongodb.health_metrics.aggregate(
+            get_daily_aggregation_pipeline("flights_climbed", use_sum=True)
+        ).to_list(length=None)
+        time_series["flights_climbed"] = [
+            {
+                "date": item["_id"],
+                "total": round(item["total"]),
+                "count": item["count"]
+            }
+            for item in flights_data
+        ]
+        
+        # Sleep Trends
+        sleep_pipeline = [
+            {
+                "$match": {
+                    "patient_id": patient_id,
+                    "metric_type": "sleep_analysis",
+                    "timestamp": {"$gte": since}
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$timestamp"}},
+                        "category": "$sleep_category"
+                    },
+                    "total_hours": {"$sum": "$value"}
+                }
+            },
+            {
+                "$sort": {"_id.date": 1}
+            }
+        ]
+        
+        sleep_results = await mongodb.health_metrics.aggregate(sleep_pipeline).to_list(length=None)
+        
+        # Process sleep data
+        daily_sleep = {}
+        for item in sleep_results:
+            date = item["_id"]["date"]
+            category = item["_id"]["category"]
+            hours = round(item["total_hours"], 2)
+            
+            if date not in daily_sleep:
+                daily_sleep[date] = {
+                    "date": date,
+                    "time_in_bed": 0.0,
+                    "time_asleep": 0.0,
+                    "stages": {"awake": 0, "rem": 0, "core": 0, "deep": 0}
+                }
+            
+            if category == "inBed":
+                daily_sleep[date]["time_in_bed"] = hours
+            elif category in ["core", "deep", "rem"]:
+                daily_sleep[date]["time_asleep"] += hours
+                daily_sleep[date]["stages"][category] = hours
+            elif category == "awake":
+                daily_sleep[date]["stages"]["awake"] = hours
+        
+        # Round time_asleep
+        for data in daily_sleep.values():
+            data["time_asleep"] = round(data["time_asleep"], 2)
+        
+        time_series["sleep"] = sorted(list(daily_sleep.values()), key=lambda x: x["date"])
+        
+        # 3. Get Device Info
+        prisma = get_prisma()
+        device = await prisma.wearabledevice.find_first(
+            where={"patient_id": patient_id},
+            order={"last_sync_time": "desc"}
+        )
+        
+        device_info = {
+            "last_sync": device.last_sync_time.isoformat() if device and device.last_sync_time else None,
+            "total_metrics": await mongodb.health_metrics.count_documents({"patient_id": patient_id})
+        }
+        
+        logger.info(
+            "Comprehensive metrics retrieved successfully",
+            patient_id=patient_id,
+            total_metrics=device_info["total_metrics"]
+        )
+        
+        return {
+            "patient_id": patient_id,
+            "request_timestamp": now.isoformat() + "Z",
+            "summary": summary,
+            "time_series": time_series,
+            "device_info": device_info
+        }
+        
+    except Exception as e:
+        logger.error("Failed to get comprehensive metrics", error=str(e), exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve comprehensive metrics: {str(e)}"
+        )
+
+

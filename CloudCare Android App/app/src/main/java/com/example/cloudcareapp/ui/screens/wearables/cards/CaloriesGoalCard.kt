@@ -33,7 +33,7 @@ fun CaloriesGoalCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E))
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFAFAFA))  // Light mode
     ) {
         Column(
             modifier = Modifier
@@ -45,7 +45,7 @@ fun CaloriesGoalCard(
                 text = "Today's Activity",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = Color.Black  // Light mode
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -185,7 +185,7 @@ fun MetricLegendItem(
             text = value,
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.SemiBold,
-            color = Color.White
+            color = Color.Black  // Light mode
         )
     }
 }

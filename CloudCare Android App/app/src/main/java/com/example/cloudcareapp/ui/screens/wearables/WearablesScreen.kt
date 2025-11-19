@@ -3,6 +3,7 @@
 package com.example.cloudcareapp.ui.screens.wearables
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -23,8 +24,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.cloudcareapp.data.model.*
 import com.example.cloudcareapp.ui.components.QRScannerScreen
-import com.example.cloudcareapp.ui.screens.wearables.cards.*
+import com.example.cloudcareapp.ui.screens.wearables.cards.CaloriesGoalCard
+import com.example.cloudcareapp.ui.screens.wearables.cards.DailyCaloriesCard
+import com.example.cloudcareapp.ui.screens.wearables.cards.DailyHeartRateCard
+import com.example.cloudcareapp.ui.screens.wearables.cards.DailyStepsCard
+import com.example.cloudcareapp.ui.screens.wearables.cards.SleepDetailCard
+import com.example.cloudcareapp.ui.screens.wearables.cards.TrendsEnergyCard
+import com.example.cloudcareapp.ui.screens.wearables.cards.TrendsHeartRateCard
+import com.example.cloudcareapp.ui.screens.wearables.cards.TrendsSleepCard
+import com.example.cloudcareapp.ui.screens.wearables.cards.TrendsStepsCard
 import com.example.cloudcareapp.ui.theme.*
+import com.example.cloudcareapp.utils.TimeFormatter
 import com.google.gson.Gson
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -45,11 +55,23 @@ fun WearablesScreen(
     wearablesViewModel: WearablesViewModel = viewModel()
 ) {
     val uiState by wearablesViewModel.uiState.collectAsState()
-    val weeklyData by wearablesViewModel.weeklyData.collectAsState()
+    // val weeklyData by wearablesViewModel.weeklyData.collectAsState() // Removed
     val isSyncing by wearablesViewModel.isSyncing.collectAsState()
-    val selectedRange by wearablesViewModel.selectedDateRange.collectAsState()
+    // val selectedRange by wearablesViewModel.selectedDateRange.collectAsState() // Removed
+
+    // Collect decoupled states
+    val stepsData by wearablesViewModel.stepsData.collectAsState()
+    val caloriesData by wearablesViewModel.caloriesData.collectAsState()
+    val sleepTrends by wearablesViewModel.sleepTrends.collectAsState()
+    val dailySleepStages by wearablesViewModel.dailySleepStages.collectAsState()
+    val heartRateTrends by wearablesViewModel.heartRateTrends.collectAsState()
 
     val formattedLastSync = com.example.cloudcareapp.data.cache.AppDataCache.getFormattedLastSyncTime()
+    
+    // Ensure cache is initialized when screen opens
+    LaunchedEffect(Unit) {
+        wearablesViewModel.ensureCacheInitialized()
+    }
 
     Scaffold(
         topBar = {
@@ -59,7 +81,7 @@ fun WearablesScreen(
                         text = "Wearables & Devices",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 },
                 navigationIcon = {
@@ -67,12 +89,12 @@ fun WearablesScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1C1C1E)
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
@@ -88,12 +110,15 @@ fun WearablesScreen(
                     devices = successState.devices,
                     healthSummary = successState.healthSummary,
                     insights = successState.insights,
-                    weeklyData = weeklyData,
+                    stepsData = stepsData,
+                    caloriesData = caloriesData,
+                    sleepTrends = sleepTrends,
+                    dailySleepStages = dailySleepStages,
+                    heartRateTrends = heartRateTrends,
                     onRefresh = { wearablesViewModel.refresh() },
                     wearablesViewModel = wearablesViewModel,
                     lastSyncTime = formattedLastSync,
                     isSyncing = isSyncing,
-                    selectedRange = selectedRange,
                     modifier = Modifier.padding(padding)
                 )
             }
@@ -114,7 +139,7 @@ private fun LoadingState(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF000000)),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator(color = Primary)
@@ -130,7 +155,7 @@ private fun ErrorState(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF000000)),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -150,27 +175,25 @@ private fun WearablesContent(
     devices: List<WearableDevice>,
     healthSummary: HealthSummary,
     insights: List<HealthInsight>,
-    weeklyData: WeeklyDataState,
+    stepsData: List<AggregatedDataPoint>,
+    caloriesData: List<AggregatedDataPoint>,
+    sleepTrends: List<SleepTrendDataPoint>,
+    dailySleepStages: SleepStages?,
+    heartRateTrends: List<HeartRateTrendDataPoint>,
     onRefresh: () -> Unit,
     wearablesViewModel: WearablesViewModel,
     lastSyncTime: String,
     isSyncing: Boolean,
-    selectedRange: Int,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var showPairingDialog by remember { mutableStateOf(false) }
-    
-    // Collect sleep trends from ViewModel
-    val sleepTrends by wearablesViewModel.sleepTrends.collectAsState()
-    
-    // Collect heart rate trends from ViewModel
-    val heartRateTrends by wearablesViewModel.heartRateTrends.collectAsState()
+    var selectedDeviceForUnpair by remember { mutableStateOf<WearableDevice?>(null) }
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF000000)),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -189,6 +212,7 @@ private fun WearablesContent(
         items(devices.size) { index ->
             DeviceCard(
                 device = devices[index],
+                onDeviceClick = { selectedDeviceForUnpair = it },
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
         }
@@ -250,128 +274,59 @@ private fun WearablesContent(
         } else {
             // Health Trends
             item {
-                when (weeklyData) {
-                    is WeeklyDataState.Loading -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp)
-                                .padding(horizontal = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(color = Primary)
-                        }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Health Trends",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+
+                    // Steps Trends
+                    if (stepsData.isNotEmpty()) {
+                        TrendsStepsCard(
+                            data = stepsData,
+                            onTimeframeChange = { timeframe ->
+                                wearablesViewModel.loadStepsTrend(timeframe)
+                            }
+                        )
                     }
 
-                    is WeeklyDataState.Success -> {
-                        val aggregatedData = weeklyData.data
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Text(
-                                text = "Health Trends",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-
-                            // Steps Trends
-                            aggregatedData.metrics["steps"]?.let { stepsData ->
-                                if (stepsData.isNotEmpty()) {
-                                    TrendsStepsCard(
-                                        data = stepsData,
-                                        onTimeframeChange = { timeframe ->
-                                            val days = when (timeframe) {
-                                                "D" -> 1
-                                                "W" -> 7
-                                                "M" -> 30
-                                                else -> 7
-                                            }
-                                            wearablesViewModel.setDateRange(days)
-                                        }
-                                    )
-                                }
+                    // Energy (Calories) Trends
+                    if (caloriesData.isNotEmpty()) {
+                        TrendsEnergyCard(
+                            data = caloriesData,
+                            onTimeframeChange = { timeframe ->
+                                wearablesViewModel.loadCaloriesTrend(timeframe)
                             }
-
-                            // Energy (Calories) Trends
-                            aggregatedData.metrics["calories"]?.let { caloriesData ->
-                                if (caloriesData.isNotEmpty()) {
-                                    TrendsEnergyCard(
-                                        data = caloriesData,
-                                        onTimeframeChange = { timeframe ->
-                                            val days = when (timeframe) {
-                                                "D" -> 1
-                                                "W" -> 7
-                                                "M" -> 30
-                                                else -> 7
-                                            }
-                                            wearablesViewModel.setDateRange(days)
-                                        }
-                                    )
-                                }
-                            }
-
-                            // Distance Trends
-                            aggregatedData.metrics["distance"]?.let { distanceData ->
-                                if (distanceData.isNotEmpty()) {
-                                    TrendsDistanceCard(
-                                        data = distanceData,
-                                        onTimeframeChange = { timeframe ->
-                                            val days = when (timeframe) {
-                                                "D" -> 1
-                                                "W" -> 7
-                                                "M" -> 30
-                                                else -> 7
-                                            }
-                                            wearablesViewModel.setDateRange(days)
-                                        }
-                                    )
-                                }
-                            }
-
-                            // Sleep Trends - Using dedicated sleep-trends endpoint
-                            if (sleepTrends.isNotEmpty()) {
-                                TrendsSleepCard(
-                                    sleepTrends = sleepTrends,
-                                    onTimeframeChange = { timeframe ->
-                                        val days = when (timeframe) {
-                                            "D" -> 1
-                                            "W" -> 7
-                                            "M" -> 30
-                                            else -> 7
-                                        }
-                                        wearablesViewModel.setDateRange(days)
-                                    }
-                                )
-                            }
-                            
-                            // Heart Rate Trends - Using dedicated heart-rate-trends endpoint
-                            if (heartRateTrends.isNotEmpty()) {
-                                TrendsHeartRateCard(
-                                    heartRateTrends = heartRateTrends,
-                                    onTimeframeChange = { timeframe ->
-                                        val days = when (timeframe) {
-                                            "D" -> 1
-                                            "W" -> 7
-                                            "M" -> 30
-                                            else -> 7
-                                        }
-                                        wearablesViewModel.setDateRange(days)
-                                    }
-                                )
-                            }
-                        }
+                        )
                     }
 
-                    is WeeklyDataState.Error -> {
-                        ErrorCard(
-                            message = weeklyData.message,
-                            onRetry = onRefresh,
-                            modifier = Modifier.padding(horizontal = 16.dp)
+                    // Sleep Trends
+                    // If dailySleepStages is not null and sleepTrends is empty (or we are in daily mode), show breakdown
+                    // But TrendsSleepCard needs to handle this logic or we swap cards here.
+                    // Let's pass both to TrendsSleepCard and let it decide or update TrendsSleepCard signature.
+                    // For now, I'll update TrendsSleepCard to accept dailySleepStages.
+                    TrendsSleepCard(
+                        sleepTrends = sleepTrends,
+                        dailySleepStages = dailySleepStages,
+                        onTimeframeChange = { timeframe ->
+                            wearablesViewModel.updateSleepTrends(timeframe)
+                        }
+                    )
+                    
+                    // Heart Rate Trends
+                    if (heartRateTrends.isNotEmpty()) {
+                        TrendsHeartRateCard(
+                            heartRateTrends = heartRateTrends,
+                            onTimeframeChange = { timeframe ->
+                                wearablesViewModel.updateHeartRateTrends(timeframe)
+                            }
                         )
                     }
                 }
@@ -387,6 +342,21 @@ private fun WearablesContent(
         QRScannerOverlay(
             wearablesViewModel = wearablesViewModel,
             onDismiss = { showPairingDialog = false }
+        )
+    }
+    
+    // Device unpair dialog
+    selectedDeviceForUnpair?.let { device ->
+        UnpairDeviceDialog(
+            device = device,
+            onUnpair = {
+                wearablesViewModel.unpairDevice(device.id) { success, message ->
+                    if (success) {
+                        selectedDeviceForUnpair = null
+                    }
+                }
+            },
+            onDismiss = { selectedDeviceForUnpair = null }
         )
     }
 }
@@ -413,13 +383,13 @@ private fun DevicesHeader(
                     text = "Connected Devices",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 if (lastSyncTime.isNotEmpty()) {
                     Text(
-                        text = "Last synced: $lastSyncTime",
+                        text = TimeFormatter.formatLastSyncTime(lastSyncTime),
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                     )
                 }
             }
@@ -450,11 +420,17 @@ private fun DevicesHeader(
 }
 
 @Composable
-private fun DeviceCard(device: WearableDevice, modifier: Modifier = Modifier) {
+private fun DeviceCard(
+    device: WearableDevice,
+    onDeviceClick: (WearableDevice) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onDeviceClick(device) },
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier
@@ -490,17 +466,17 @@ private fun DeviceCard(device: WearableDevice, modifier: Modifier = Modifier) {
                     text = device.name ?: "Unknown Device",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = device.type ?: "Unknown Type",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                 )
                 Text(
-                    text = "Last sync: ${device.last_sync_time ?: "Never"}",
+                    text = "Last sync: ${TimeFormatter.getRelativeTime(device.last_sync_time)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             }
         }
@@ -543,7 +519,7 @@ private fun TabButton(
         modifier = modifier,
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (selected) Primary else Color(0xFF2C2C2E)
+            containerColor = if (selected) Primary else MaterialTheme.colorScheme.surfaceVariant
         ),
         onClick = onClick
     ) {
@@ -557,7 +533,7 @@ private fun TabButton(
                 text = text,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (selected) Color.White else Color.White.copy(alpha = 0.6f)
+                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -571,7 +547,7 @@ private fun ErrorCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -645,3 +621,87 @@ private fun QRScannerOverlay(
         }
     }
 }
+
+@Composable
+private fun UnpairDeviceDialog(
+    device: WearableDevice,
+    onUnpair: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var isLoading by remember { mutableStateOf(false) }
+    
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        title = {
+            Text(
+                text = "Manage Device",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Device: ${device.name ?: "Unknown Device"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Type: ${device.type ?: "Unknown Type"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "What would you like to do?",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    isLoading = true
+                    onUnpair()
+                },
+                enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Error,
+                    disabledContainerColor = Error.copy(alpha = 0.5f)
+                )
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Unpairing...")
+                } else {
+                    Text("Unpair Device")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = { if (!isLoading) onDismiss() },
+                enabled = !isLoading
+            ) {
+                Text(
+                    "Close",
+                    color = if (isLoading) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f) else Primary
+                )
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 8.dp,
+        shape = RoundedCornerShape(20.dp)
+    )
+}
+

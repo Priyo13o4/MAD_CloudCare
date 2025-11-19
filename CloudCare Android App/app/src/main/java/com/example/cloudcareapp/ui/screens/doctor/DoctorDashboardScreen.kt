@@ -1,8 +1,10 @@
 package com.example.cloudcareapp.ui.screens.doctor
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -11,68 +13,118 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import com.example.cloudcareapp.data.model.PatientQRData
+import com.example.cloudcareapp.data.remote.RetrofitClient
+import com.example.cloudcareapp.ui.components.CommonTopAppBar
 import com.example.cloudcareapp.ui.theme.*
+import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DoctorDashboardScreen(
     onLogout: () -> Unit,
+    onMenuClick: (() -> Unit)? = null,
     onNavigateToPatients: () -> Unit = {},
     onNavigateToEmergency: () -> Unit = {},
     onNavigateToSchedule: () -> Unit = {},
-    onNavigateToRecords: () -> Unit = {}
+    onNavigateToRecords: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToQRScanner: () -> Unit = {}
 ) {
+    
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Doctor Dashboard") },
-                actions = {
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.Filled.Logout, contentDescription = "Logout")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Secondary
-                )
+            CommonTopAppBar(
+                title = "Doctor Dashboard",
+                onMenuClick = onMenuClick,
+                onQRScanClick = onNavigateToQRScanner,
+                notificationCount = 3,
+                onNotificationClick = onNavigateToNotifications,
+                onProfileClick = onNavigateToProfile,
+                showQRScanner = true,
+                showNotifications = true,
+                showProfile = true,
+                showSettingsMenu = false,
+                backgroundColor = DoctorPrimary,
+                isDoctorTheme = true
             )
         }
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Background)
+                .background(DoctorBackground)
                 .padding(paddingValues)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                // Welcome Card
+                // Welcome Card with Professional Gradient
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = Secondary
-                    )
+                        containerColor = Color.Transparent
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Column(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp)
+                            .background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(DoctorPrimary, DoctorAccent)
+                                )
+                            )
+                            .padding(24.dp)
                     ) {
-                        Text(
-                            text = "Welcome, Dr. Suresh",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Cardiology Department",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.MedicalServices,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        text = "Welcome, Dr. Suresh",
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Text(
+                                        text = "Cardiology Department",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = Color.White.copy(alpha = 0.9f)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -81,7 +133,8 @@ fun DoctorDashboardScreen(
                 Text(
                     text = "Today's Overview",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = DoctorTextPrimary
                 )
             }
             
@@ -94,7 +147,8 @@ fun DoctorDashboardScreen(
                         title = "Patients",
                         value = "12",
                         icon = Icons.Filled.People,
-                        color = Primary,
+                        color = DoctorPrimary,
+                        backgroundColor = DoctorCardTeal,
                         modifier = Modifier.weight(1f),
                         onClick = onNavigateToPatients
                     )
@@ -102,7 +156,8 @@ fun DoctorDashboardScreen(
                         title = "Appointments",
                         value = "8",
                         icon = Icons.Filled.CalendarToday,
-                        color = Secondary,
+                        color = DoctorAccent,
+                        backgroundColor = DoctorCardBlue,
                         modifier = Modifier.weight(1f),
                         onClick = onNavigateToSchedule
                     )
@@ -118,7 +173,8 @@ fun DoctorDashboardScreen(
                         title = "Emergency",
                         value = "2",
                         icon = Icons.Filled.Warning,
-                        color = Error,
+                        color = DoctorError,
+                        backgroundColor = Color(0xFFFEE2E2),
                         modifier = Modifier.weight(1f),
                         onClick = onNavigateToEmergency
                     )
@@ -126,7 +182,8 @@ fun DoctorDashboardScreen(
                         title = "Records",
                         value = "45",
                         icon = Icons.Filled.Description,
-                        color = Success,
+                        color = DoctorSuccess,
+                        backgroundColor = Color(0xFFD1FAE5),
                         modifier = Modifier.weight(1f),
                         onClick = onNavigateToRecords
                     )
@@ -137,7 +194,8 @@ fun DoctorDashboardScreen(
                 Text(
                     text = "Quick Actions",
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = DoctorTextPrimary
                 )
             }
             
@@ -146,6 +204,7 @@ fun DoctorDashboardScreen(
                     title = "View Patients",
                     description = "Manage assigned patients",
                     icon = Icons.Filled.People,
+                    iconColor = DoctorPrimary,
                     onClick = onNavigateToPatients
                 )
             }
@@ -155,6 +214,7 @@ fun DoctorDashboardScreen(
                     title = "Emergency Alerts",
                     description = "View critical patient alerts",
                     icon = Icons.Filled.Notifications,
+                    iconColor = DoctorError,
                     onClick = onNavigateToEmergency
                 )
             }
@@ -164,8 +224,13 @@ fun DoctorDashboardScreen(
                     title = "Schedule",
                     description = "View today's appointments",
                     icon = Icons.Filled.Schedule,
+                    iconColor = DoctorAccent,
                     onClick = onNavigateToSchedule
                 )
+            }
+            
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -178,15 +243,17 @@ fun DoctorStatCard(
     value: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     color: Color,
+    backgroundColor: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
     Card(
-        modifier = modifier.height(120.dp),
+        modifier = modifier.height(130.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = color.copy(alpha = 0.1f)
+            containerColor = backgroundColor
         ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         onClick = onClick
     ) {
         Column(
@@ -195,13 +262,21 @@ fun DoctorStatCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(32.dp)
-            )
-            Column {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(color.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = value,
                     style = MaterialTheme.typography.headlineLarge,
@@ -211,8 +286,9 @@ fun DoctorStatCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary,
-                    maxLines = 1
+                    color = DoctorTextSecondary,
+                    maxLines = 1,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -225,6 +301,7 @@ fun DoctorActionCard(
     title: String,
     description: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color = DoctorPrimary,
     onClick: () -> Unit
 ) {
     Card(
@@ -232,8 +309,9 @@ fun DoctorActionCard(
         shape = RoundedCornerShape(16.dp),
         onClick = onClick,
         colors = CardDefaults.cardColors(
-            containerColor = Surface
-        )
+            containerColor = DoctorSurface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
@@ -244,14 +322,15 @@ fun DoctorActionCard(
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(Secondary.copy(alpha = 0.1f)),
+                    .clip(CircleShape)
+                    .background(iconColor.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = Secondary
+                    tint = iconColor,
+                    modifier = Modifier.size(24.dp)
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
@@ -259,18 +338,19 @@ fun DoctorActionCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = DoctorTextPrimary
                 )
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
+                    color = DoctorTextSecondary
                 )
             }
             Icon(
                 imageVector = Icons.Filled.ChevronRight,
                 contentDescription = null,
-                tint = TextSecondary
+                tint = DoctorTextTertiary
             )
         }
     }

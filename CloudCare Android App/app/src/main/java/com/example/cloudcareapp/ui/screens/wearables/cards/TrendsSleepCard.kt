@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.cloudcareapp.data.model.SleepStages
 import com.example.cloudcareapp.data.model.SleepTrendDataPoint
 import com.example.cloudcareapp.ui.components.SegmentedControl
 import com.example.cloudcareapp.ui.components.DateLabels
@@ -35,6 +37,7 @@ import com.example.cloudcareapp.ui.components.DateLabels
 @Composable
 fun TrendsSleepCard(
     sleepTrends: List<SleepTrendDataPoint>,
+    dailySleepStages: SleepStages? = null,
     onTimeframeChange: (timeframe: String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -45,7 +48,7 @@ fun TrendsSleepCard(
     // Local filtering - does NOT trigger ViewModel refresh
     val displayData = remember(sleepTrends, selectedTimeframe) {
         when (selectedTimeframe) {
-            "D" -> sleepTrends  // Show all available data points
+            "D" -> emptyList() // Handled by dailySleepStages
             "W" -> sleepTrends.takeLast(7)
             "M" -> sleepTrends.takeLast(30)
             else -> sleepTrends.takeLast(7)
@@ -69,7 +72,7 @@ fun TrendsSleepCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier
@@ -98,12 +101,12 @@ fun TrendsSleepCard(
                             text = "Sleep",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = displayDate,
+                            text = if (selectedTimeframe == "D") "Last Night" else displayDate,
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.6f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
                     }
                 }
@@ -111,7 +114,12 @@ fun TrendsSleepCard(
                 // Display value
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = String.format("%.1fh", displaySleepAsleep),
+                        text = if (selectedTimeframe == "D" && dailySleepStages != null) {
+                            val total = dailySleepStages.core + dailySleepStages.deep + dailySleepStages.rem
+                            String.format("%.1fh", total)
+                        } else {
+                            String.format("%.1fh", displaySleepAsleep)
+                        },
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = sleepColor
@@ -124,7 +132,7 @@ fun TrendsSleepCard(
                 }
             }
 
-            Divider(color = Color.White.copy(alpha = 0.1f))
+            Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
             // Segmented Control (FIXED SIGNATURE)
             SegmentedControl(
@@ -138,25 +146,38 @@ fun TrendsSleepCard(
                 activeColor = sleepColor
             )
 
-            // Honest Sleep Bar Chart
-            HonestSleepBarChart(
-                data = displayData,
-                selectedIndex = selectedIndex,
-                onBarSelected = { selectedIndex = it },
-                sleepColor = sleepColor,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-            )
+            if (selectedTimeframe == "D" && dailySleepStages != null) {
+                // Daily Breakdown View
+                DailySleepBreakdown(
+                    stages = dailySleepStages,
+                    sleepColor = sleepColor,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                )
+            } else {
+                // Honest Sleep Bar Chart
+                HonestSleepBarChart(
+                    data = displayData,
+                    selectedIndex = selectedIndex,
+                    onBarSelected = { selectedIndex = it },
+                    sleepColor = sleepColor,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                )
 
-            // Date Labels (FIXED SIGNATURE)
-            if (displayData.isNotEmpty()) {
-                DateLabels(dates = displayData.map { it.date })
+                // Date Labels (FIXED SIGNATURE)
+                if (displayData.isNotEmpty()) {
+                    DateLabels(dates = displayData.map { it.date })
+                }
             }
 
             // Footer Insights
             Text(
-                text = if (displayData.isNotEmpty()) {
+                text = if (selectedTimeframe == "D") {
+                    "Breakdown of sleep stages for last night."
+                } else if (displayData.isNotEmpty()) {
                     when {
                         avgSleepEfficiency >= 90 -> "Excellent sleep efficiency! You're getting quality rest."
                         avgSleepEfficiency >= 80 -> "Good sleep efficiency. Most time in bed is spent sleeping."
@@ -167,9 +188,71 @@ fun TrendsSleepCard(
                     "No sleep data available for this period."
                 },
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
         }
+    }
+}
+
+@Composable
+private fun DailySleepBreakdown(
+    stages: SleepStages,
+    sleepColor: Color,
+    modifier: Modifier = Modifier
+) {
+    val total = stages.awake + stages.rem + stages.core + stages.deep
+    if (total == 0.0) {
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Text("No sleep data for last night", color = Color.Gray)
+        }
+        return
+    }
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.Center) {
+        // Simple stacked bar or list of stages
+        // Let's do a list of stages with progress bars
+        StageRow("Awake", stages.awake, total, Color(0xFFFF9F0A))
+        Spacer(modifier = Modifier.height(8.dp))
+        StageRow("REM", stages.rem, total, Color(0xFFBF5AF2))
+        Spacer(modifier = Modifier.height(8.dp))
+        StageRow("Core", stages.core, total, Color(0xFF5E5CE6))
+        Spacer(modifier = Modifier.height(8.dp))
+        StageRow("Deep", stages.deep, total, Color(0xFF0A84FF))
+    }
+}
+
+@Composable
+private fun StageRow(label: String, value: Double, total: Double, color: Color) {
+    val percentage = if (total > 0) (value / total).toFloat() else 0f
+    
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.width(50.dp)
+        )
+        
+        LinearProgressIndicator(
+            progress = { percentage },
+            modifier = Modifier
+                .weight(1f)
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp)),
+            color = color,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        )
+        
+        Text(
+            text = String.format("%.1fh", value),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            modifier = Modifier.width(40.dp)
+        )
     }
 }
 
@@ -197,7 +280,7 @@ private fun HonestSleepBarChart(
             Text(
                 text = "No sleep data available",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.5f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             )
         }
         return

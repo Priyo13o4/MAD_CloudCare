@@ -36,14 +36,50 @@ object AppDataCache {
     private val _metricsCacheFlow = MutableStateFlow<Map<String, AggregatedMetricsResponse>>(emptyMap())
     val metricsCache: StateFlow<Map<String, AggregatedMetricsResponse>> = _metricsCacheFlow.asStateFlow()
     
+    // Cache for comprehensive metrics (single API call with all data)
+    private val _comprehensiveMetricsCache = MutableStateFlow<ComprehensiveMetricsResponse?>(null)
+    val comprehensiveMetricsCache: StateFlow<ComprehensiveMetricsResponse?> = _comprehensiveMetricsCache.asStateFlow()
+    
     // Last sync timestamps (for each endpoint)
     private val _lastSyncTimes = mutableMapOf<String, LocalDateTime>()
     private val _lastSyncTimeFlow = MutableStateFlow<LocalDateTime?>(null)
     val lastSyncTime: StateFlow<LocalDateTime?> = _lastSyncTimeFlow.asStateFlow()
-    
-    // Is currently syncing
+
+    // Global syncing state shared across screens (true while refresh in progress)
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+    
+    // Patient info cache
+    private var cachedPatientId: String? = null
+    private var cachedPatientName: String? = null
+    
+    /**
+     * Get cached patient ID
+     */
+    fun getPatientId(): String? {
+        return cachedPatientId
+    }
+    
+    /**
+     * Set patient ID cache
+     */
+    fun setPatientId(patientId: String) {
+        this.cachedPatientId = patientId
+    }
+    
+    /**
+     * Get cached patient name
+     */
+    fun getPatientName(): String? {
+        return cachedPatientName
+    }
+    
+    /**
+     * Set patient name cache
+     */
+    fun setPatientName(patientName: String) {
+        this.cachedPatientName = patientName
+    }
     
     /**
      * Check if cache has valid data for today's summary
@@ -119,6 +155,29 @@ object AppDataCache {
     }
     
     /**
+     * Get cached comprehensive metrics (all data in one call)
+     */
+    fun getComprehensiveMetrics(): ComprehensiveMetricsResponse? {
+        return _comprehensiveMetricsCache.value
+    }
+    
+    /**
+     * Set comprehensive metrics cache
+     */
+    fun setComprehensiveMetrics(response: ComprehensiveMetricsResponse) {
+        Log.d(TAG, "Caching comprehensive metrics")
+        _comprehensiveMetricsCache.value = response
+        _lastSyncTimes["comprehensive"] = LocalDateTime.now()
+    }
+    
+    /**
+     * Check if cache has comprehensive metrics
+     */
+    fun hasComprehensiveMetrics(): Boolean {
+        return _comprehensiveMetricsCache.value != null
+    }
+    
+    /**
      * Clear all cached data
      */
     fun clearAll() {
@@ -127,6 +186,7 @@ object AppDataCache {
         _devicesCache.value = emptyList()
         _metricsCache.clear()
         _metricsCacheFlow.value = emptyMap()
+        _comprehensiveMetricsCache.value = null
         _lastSyncTimes.clear()
         _lastSyncTimeFlow.value = null
     }

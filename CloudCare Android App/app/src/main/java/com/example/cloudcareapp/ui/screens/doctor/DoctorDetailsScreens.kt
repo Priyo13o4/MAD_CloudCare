@@ -38,7 +38,7 @@ fun DoctorPatientsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Secondary
+                    containerColor = DoctorPrimary
                 )
             )
         }
@@ -46,7 +46,7 @@ fun DoctorPatientsScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Background)
+                .background(DoctorBackground)
                 .padding(paddingValues)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -59,7 +59,7 @@ fun DoctorPatientsScreen(
                         text = "⚠️ Critical Patients",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Error,
+                        color = DoctorError,
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
                 }
@@ -93,9 +93,9 @@ fun PatientCard(
     showEmergencyBanner: Boolean = false
 ) {
     val statusColor = when (patient.status) {
-        PatientStatus.STABLE -> Success
-        PatientStatus.MONITORING -> Warning
-        PatientStatus.CRITICAL -> Error
+        PatientStatus.STABLE -> DoctorSuccess
+        PatientStatus.MONITORING -> DoctorWarning
+        PatientStatus.CRITICAL -> DoctorError
     }
     
     val statusIcon = when (patient.status) {
@@ -307,7 +307,7 @@ fun DoctorEmergencyScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Secondary
+                    containerColor = DoctorPrimary
                 )
             )
         }
@@ -315,7 +315,7 @@ fun DoctorEmergencyScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Background)
+                .background(DoctorBackground)
                 .padding(paddingValues)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -325,7 +325,7 @@ fun DoctorEmergencyScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = Error.copy(alpha = 0.1f)
+                        containerColor = DoctorError.copy(alpha = 0.1f)
                     )
                 ) {
                     Row(
@@ -338,12 +338,12 @@ fun DoctorEmergencyScreen(
                         Icon(
                             imageVector = Icons.Filled.Info,
                             contentDescription = null,
-                            tint = Error
+                            tint = DoctorError
                         )
                         Text(
                             text = "Critical alerts require immediate attention",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TextPrimary
+                            color = DoctorTextPrimary
                         )
                     }
                 }
@@ -556,7 +556,7 @@ fun DoctorScheduleScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Secondary
+                    containerColor = DoctorPrimary
                 )
             )
         }
@@ -564,7 +564,7 @@ fun DoctorScheduleScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Background)
+                .background(DoctorBackground)
                 .padding(paddingValues)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -575,7 +575,7 @@ fun DoctorScheduleScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = Secondary
+                        containerColor = DoctorPrimary
                     )
                 ) {
                     Row(
@@ -921,7 +921,7 @@ fun DoctorRecordsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Secondary
+                    containerColor = DoctorPrimary
                 )
             )
         }
@@ -929,7 +929,7 @@ fun DoctorRecordsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Background)
+                .background(DoctorBackground)
                 .padding(paddingValues)
         ) {
             // Filter chips

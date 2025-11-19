@@ -58,7 +58,7 @@ fun TrendsEnergyCard(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E))
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier
@@ -99,12 +99,12 @@ fun TrendsEnergyCard(
                         text = "Energy",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = displayDate,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
 
@@ -146,7 +146,7 @@ fun TrendsEnergyCard(
             // Highlights footer
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFF2C2C2E)
+                color = MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Column(
                     modifier = Modifier
@@ -157,13 +157,13 @@ fun TrendsEnergyCard(
                         text = "Highlights",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color.White.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = generateCaloriesInsight(avgCalories, totalCalories),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.9f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -176,7 +176,7 @@ fun TrendsEnergyCard(
 /**
  * Generate insight text based on calories data
  */
-private fun generateCaloriesInsight(avgCalories: Int, totalCalories: Int): String {
+fun generateCaloriesInsight(avgCalories: Int, totalCalories: Int): String {
     return when {
         avgCalories >= 2500 -> "Excellent! You're burning more calories than the average daily goal."
         avgCalories >= 2000 -> "You burned $totalCalories kcal. You're on track with your energy expenditure."

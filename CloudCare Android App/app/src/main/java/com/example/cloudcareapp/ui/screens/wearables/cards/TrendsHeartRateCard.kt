@@ -18,8 +18,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.cloudcareapp.data.model.HeartRateTrendDataPoint
@@ -46,8 +50,6 @@ fun TrendsHeartRateCard(
     onTimeframeChange: (timeframe: String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val cardColor = Color(0xFF1C1C1E)
-    
     var selectedPeriod by remember { mutableStateOf("W") }
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
     
@@ -64,8 +66,8 @@ fun TrendsHeartRateCard(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .background(cardColor),
-        color = cardColor,
+            .background(MaterialTheme.colorScheme.surface),
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
@@ -85,7 +87,7 @@ fun TrendsHeartRateCard(
                         text = "Heart Rate",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     if (selectedIndex != null && selectedIndex!! in filteredData.indices) {
                         val point = filteredData[selectedIndex!!]
@@ -157,7 +159,7 @@ fun TrendsHeartRateCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF2C2C2E), RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
                         .padding(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -172,7 +174,7 @@ fun TrendsHeartRateCard(
                             text = "${point.min_bpm.toInt()} BPM",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
@@ -186,7 +188,7 @@ fun TrendsHeartRateCard(
                             text = "${point.bpm.toInt()} BPM",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
@@ -200,7 +202,7 @@ fun TrendsHeartRateCard(
                             text = "${point.max_bpm.toInt()} BPM",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -213,10 +215,11 @@ fun TrendsHeartRateCard(
  * Apple Health Range Chart for Heart Rate
  * 
  * Visual Style:
- * - Y-Axis: 0-200 BPM (or adaptive based on data)
+ * - Y-Axis: 0-200 BPM (or adaptive based on data) with numeric labels
  * - Grid: Dashed lines at 50, 100, 150 BPM
  * - Bars: Vertical capsules from min_bpm to max_bpm
  * - Color: Red/Orange gradient
+ * - Y-Axis Labels: 0, 50, 100, 150, 200 on the left side
  */
 @Composable
 fun RangeHeartRateChart(
@@ -226,6 +229,13 @@ fun RangeHeartRateChart(
     modifier: Modifier = Modifier
 ) {
     if (data.isEmpty()) return
+    
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle = TextStyle(
+        fontSize = 10.sp,
+        color = Color.Gray,
+        fontWeight = FontWeight.Normal
+    )
     
     // Y-Axis scale: Adaptive or 0-200 BPM
     val minBpmData = data.minOf { it.min_bpm }
@@ -268,11 +278,36 @@ fun RangeHeartRateChart(
                 }
         ) {
             val chartHeight = size.height
-            val barWidth = size.width / data.size
+            val chartWidth = size.width
+            val barWidth = chartWidth / data.size
+            
+            // Draw Y-axis labels (0, 50, 100, 150, 200 BPM)
+            val yAxisLabelBpmValues = listOf(0.0, 50.0, 100.0, 150.0, 200.0)
+            val labelPadding = 8f // padding from left edge
+            
+            yAxisLabelBpmValues.forEach { bpmValue ->
+                if (bpmValue <= yMax) {
+                    val normalizedY = (yMax - bpmValue) / yRange
+                    val y = chartHeight * normalizedY.toFloat()
+                    
+                    // Draw label using drawText with textMeasurer
+                    drawText(
+                        textMeasurer = textMeasurer,
+                        text = "${bpmValue.toInt()}",
+                        topLeft = Offset(labelPadding - 20f, y - 10f),
+                        style = labelStyle
+                    )
+                }
+            }
             
             // Draw dashed grid lines at 50, 100, 150 BPM
             val gridBpmValues = listOf(50.0, 100.0, 150.0)
             val pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 4f), 0f)
+            
+            // Offset for chart area (to account for left margin for labels)
+            val chartStartX = 25f
+            val chartEndX = chartWidth
+            val chartDisplayWidth = chartEndX - chartStartX
             
             gridBpmValues.forEach { bpmValue ->
                 if (bpmValue <= yMax) {
@@ -280,19 +315,19 @@ fun RangeHeartRateChart(
                     val y = chartHeight * normalizedY.toFloat()
                     
                     drawLine(
-                        color = Color.White.copy(alpha = 0.1f),
-                        start = Offset(0f, y),
-                        end = Offset(size.width, y),
+                        color = Color.Gray.copy(alpha = 0.3f),
+                        start = Offset(chartStartX, y),
+                        end = Offset(chartEndX, y),
                         strokeWidth = 1.dp.toPx(),
                         pathEffect = pathEffect
                     )
                 }
             }
             
-            // Draw range bars
+            // Draw range bars (adjusted for left margin)
             data.forEachIndexed { index, point ->
-                val x = index.toFloat() * barWidth + (barWidth * 0.25f)
-                val effectiveBarWidth = barWidth * 0.5f
+                val x = chartStartX + index.toFloat() * (chartDisplayWidth / data.size) + (chartDisplayWidth / data.size * 0.25f)
+                val effectiveBarWidth = (chartDisplayWidth / data.size) * 0.5f
                 
                 // Calculate Y positions for min and max BPM
                 val minNormalized = (yMax - point.min_bpm) / yRange

@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cloudcareapp.data.model.*
 import com.example.cloudcareapp.ui.theme.*
+import com.example.cloudcareapp.utils.TimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -427,7 +428,7 @@ fun ActivityItem(activity: Activity) {
                     color = TextPrimary
                 )
                 Text(
-                    text = activity.timestamp,
+                    text = TimeFormatter.getRelativeTime(activity.timestamp),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextSecondary
                 )
