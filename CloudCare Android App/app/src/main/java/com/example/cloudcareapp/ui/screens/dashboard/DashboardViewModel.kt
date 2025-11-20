@@ -17,13 +17,12 @@ import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 
 class DashboardViewModel(
+    private val patientId: String,
     private val healthMetricsRepository: HealthMetricsRepository = HealthMetricsRepository(),
     private val mockRepository: MockDataRepository = MockDataRepository
 ) : ViewModel() {
     
     companion object {
-        // Patient ID from iOS CloudSync app with 27,185+ metrics in backend
-        const val PATIENT_ID = "3228128A-7110-4D47-8EDB-3A9160E3808A"
         private const val TAG = "DashboardViewModel"
     }
 
@@ -56,12 +55,12 @@ class DashboardViewModel(
                     val cachedSummary = AppDataCache.getTodaySummary()!!
                     val healthSummary = mapToHealthSummary(cachedSummary.summary)
                     
-                    val patient = mockRepository.getPatient(7)
+                    // Don't load patient info - not needed for dashboard
                     val stats = mockRepository.getDashboardStats()
                     val activities = mockRepository.getRecentActivities()
                     
                     _uiState.value = DashboardUiState.Success(
-                        patient = patient,
+                        patient = null,
                         stats = stats,
                         recentActivities = activities,
                         healthSummary = healthSummary,
@@ -75,7 +74,7 @@ class DashboardViewModel(
                 _uiState.value = DashboardUiState.Loading
                 
                 // Fetch real health data from backend
-                val summaryResult = healthMetricsRepository.getTodaySummary(PATIENT_ID)
+                val summaryResult = healthMetricsRepository.getTodaySummary(patientId)
                 
                 summaryResult.onSuccess { todayResponse ->
                     // Cache the response
@@ -85,13 +84,12 @@ class DashboardViewModel(
                     // Map backend data to UI models
                     val healthSummary = mapToHealthSummary(todayResponse.summary)
                     
-                    // Use mock data for patient info and activities (not yet implemented in backend)
-                    val patient = mockRepository.getPatient(7)
+                    // Don't load patient info - not needed for dashboard
                     val stats = mockRepository.getDashboardStats()
                     val activities = mockRepository.getRecentActivities()
                     
                     _uiState.value = DashboardUiState.Success(
-                        patient = patient,
+                        patient = null,
                         stats = stats,
                         recentActivities = activities,
                         healthSummary = healthSummary,
@@ -106,12 +104,11 @@ class DashboardViewModel(
                         val cachedSummary = AppDataCache.getTodaySummary()!!
                         val healthSummary = mapToHealthSummary(cachedSummary.summary)
                         
-                        val patient = mockRepository.getPatient(7)
                         val stats = mockRepository.getDashboardStats()
                         val activities = mockRepository.getRecentActivities()
                         
                         _uiState.value = DashboardUiState.Success(
-                            patient = patient,
+                            patient = null,
                             stats = stats,
                             recentActivities = activities,
                             healthSummary = healthSummary,
@@ -121,13 +118,12 @@ class DashboardViewModel(
                     } else {
                         // Fallback to mock data if no cache available
                         Log.d(TAG, "Using mock data as final fallback")
-                        val patient = mockRepository.getPatient(7)
                         val stats = mockRepository.getDashboardStats()
                         val activities = mockRepository.getRecentActivities()
                         val mockHealthSummary = mockRepository.getHealthSummary()
                         
                         _uiState.value = DashboardUiState.Success(
-                            patient = patient,
+                            patient = null,
                             stats = stats,
                             recentActivities = activities,
                             healthSummary = mockHealthSummary,
@@ -145,12 +141,11 @@ class DashboardViewModel(
                     val cachedSummary = AppDataCache.getTodaySummary()!!
                     val healthSummary = mapToHealthSummary(cachedSummary.summary)
                     
-                    val patient = mockRepository.getPatient(7)
                     val stats = mockRepository.getDashboardStats()
                     val activities = mockRepository.getRecentActivities()
                     
                     _uiState.value = DashboardUiState.Success(
-                        patient = patient,
+                        patient = null,
                         stats = stats,
                         recentActivities = activities,
                         healthSummary = healthSummary,
@@ -170,7 +165,7 @@ class DashboardViewModel(
                 AppDataCache.setSyncing(true)
                 
                 // Force fresh fetch from backend
-                val summaryResult = healthMetricsRepository.getTodaySummary(PATIENT_ID)
+                val summaryResult = healthMetricsRepository.getTodaySummary(patientId)
                 
                 summaryResult.onSuccess { todayResponse ->
                     // Update cache
@@ -182,13 +177,12 @@ class DashboardViewModel(
                     // Map backend data to UI models
                     val healthSummary = mapToHealthSummary(todayResponse.summary)
                     
-                    // Use mock data for patient info and activities
-                    val patient = mockRepository.getPatient(7)
+                    // Use mock data for stats and activities only
                     val stats = mockRepository.getDashboardStats()
                     val activities = mockRepository.getRecentActivities()
                     
                     _uiState.value = DashboardUiState.Success(
-                        patient = patient,
+                        patient = null,
                         stats = stats,
                         recentActivities = activities,
                         healthSummary = healthSummary,
@@ -219,7 +213,7 @@ class DashboardViewModel(
         prefetchJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 if (!AppDataCache.hasDevices()) {
-                    val devicesResult = healthMetricsRepository.getPairedDevices(PATIENT_ID)
+                    val devicesResult = healthMetricsRepository.getPairedDevices(patientId)
                     devicesResult.onSuccess { devices ->
                         if (devices.isNotEmpty()) {
                             AppDataCache.setDevices(devices)
@@ -234,7 +228,7 @@ class DashboardViewModel(
                 prefetchQueue.forEach { request ->
                     if (!AppDataCache.hasMetrics(request.period, request.days)) {
                         val metricsResult = healthMetricsRepository.getAggregatedMetrics(
-                            patientId = PATIENT_ID,
+                            patientId = patientId,
                             period = request.period,
                             days = request.days
                         )
@@ -319,7 +313,7 @@ sealed class DashboardUiState {
     object Loading : DashboardUiState()
     
     data class Success(
-        val patient: Patient,
+        val patient: Patient? = null,  // Made nullable - patient info shown separately
         val stats: DashboardStats,
         val recentActivities: List<Activity>,
         val healthSummary: HealthSummary? = null,

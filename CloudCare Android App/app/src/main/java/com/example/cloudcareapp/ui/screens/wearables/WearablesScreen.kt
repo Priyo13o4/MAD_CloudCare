@@ -2,6 +2,7 @@
 
 package com.example.cloudcareapp.ui.screens.wearables
 
+import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,11 +14,13 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -34,6 +37,7 @@ import com.example.cloudcareapp.ui.screens.wearables.cards.TrendsHeartRateCard
 import com.example.cloudcareapp.ui.screens.wearables.cards.TrendsSleepCard
 import com.example.cloudcareapp.ui.screens.wearables.cards.TrendsStepsCard
 import com.example.cloudcareapp.ui.theme.*
+import com.example.cloudcareapp.ui.viewmodel.AuthViewModel
 import com.example.cloudcareapp.utils.TimeFormatter
 import com.google.gson.Gson
 import kotlinx.coroutines.delay
@@ -51,9 +55,33 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WearablesScreen(
-    navController: NavController,
-    wearablesViewModel: WearablesViewModel = viewModel()
+    navController: NavController
 ) {
+    val authViewModel: AuthViewModel = viewModel()
+    val userSession by authViewModel.userSession.observeAsState()
+    val context = LocalContext.current
+    
+    // Get patient ID from session, or show error if not available
+    val patientId = userSession?.user?.patientId
+    
+    if (patientId == null) {
+        // Show error state if no patient ID
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Please log in to view wearables data")
+        }
+        return
+    }
+    
+    val wearablesViewModel: WearablesViewModel = viewModel(
+        factory = WearablesViewModelFactory(
+            context.applicationContext as Application,
+            patientId
+        )
+    )
+    
     val uiState by wearablesViewModel.uiState.collectAsState()
     // val weeklyData by wearablesViewModel.weeklyData.collectAsState() // Removed
     val isSyncing by wearablesViewModel.isSyncing.collectAsState()

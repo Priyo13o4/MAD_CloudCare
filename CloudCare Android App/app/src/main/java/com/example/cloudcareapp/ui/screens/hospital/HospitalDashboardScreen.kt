@@ -14,8 +14,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cloudcareapp.ui.components.CommonTopAppBar
 import com.example.cloudcareapp.ui.theme.*
+import com.example.cloudcareapp.ui.viewmodel.HospitalDashboardViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,31 +28,43 @@ fun HospitalDashboardScreen(
     onProfileClick: (() -> Unit)? = null,
     onNavigateToStaff: () -> Unit = {},
     onNavigateToResources: () -> Unit = {},
-    onNavigateToAdmissions: () -> Unit = {}
+    onNavigateToAdmissions: () -> Unit = {},
+    viewModel: HospitalDashboardViewModel = viewModel()
 ) {
-    Scaffold(
-        topBar = {
-            CommonTopAppBar(
-                title = "Hospital Dashboard",
-                onMenuClick = onMenuClick,
-                notificationCount = 2,
-                onNotificationClick = onNotificationClick,
-                onProfileClick = onProfileClick,
-                showQRScanner = false,
-                showNotifications = true,
-                showProfile = true,
-                showSettingsMenu = false,
-                backgroundColor = Success,
-                onLogoutClick = onLogout,
-                isDoctorTheme = false
-            )
+    val stats by viewModel.stats.collectAsState()
+    val hospitalName by viewModel.hospitalName.collectAsState()
+    val hospitalLocation by viewModel.hospitalLocation.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadDashboardData()
+    }
+
+    if (isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = Success)
         }
-    ) { paddingValues ->
+    } else if (error != null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = error ?: "Unknown error", color = Error)
+                Button(onClick = { viewModel.loadDashboardData() }) {
+                    Text("Retry")
+                }
+            }
+        }
+    } else {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Background)
-                .padding(paddingValues)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -69,13 +83,13 @@ fun HospitalDashboardScreen(
                             .padding(20.dp)
                     ) {
                         Text(
-                            text = "Apollo Hospital",
+                            text = hospitalName.ifEmpty { "Loading..." },
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Text(
-                            text = "Bangalore, Karnataka",
+                            text = hospitalLocation.ifEmpty { "Loading..." },
                             style = MaterialTheme.typography.bodyLarge,
                             color = Color.White.copy(alpha = 0.9f)
                         )
@@ -98,7 +112,7 @@ fun HospitalDashboardScreen(
                 ) {
                     HospitalStatCard(
                         title = "Patients",
-                        value = "156",
+                        value = stats?.totalPatients?.toString() ?: "0",
                         icon = Icons.Filled.LocalHospital,
                         color = Primary,
                         modifier = Modifier.weight(1f),
@@ -106,7 +120,7 @@ fun HospitalDashboardScreen(
                     )
                     HospitalStatCard(
                         title = "Doctors",
-                        value = "24",
+                        value = stats?.totalDoctors?.toString() ?: "0",
                         icon = Icons.Filled.MedicalServices,
                         color = Secondary,
                         modifier = Modifier.weight(1f),
@@ -122,7 +136,7 @@ fun HospitalDashboardScreen(
                 ) {
                     HospitalStatCard(
                         title = "Emergency",
-                        value = "8",
+                        value = stats?.emergencyCases?.toString() ?: "0",
                         icon = Icons.Filled.Warning,
                         color = Error,
                         modifier = Modifier.weight(1f),
@@ -130,7 +144,7 @@ fun HospitalDashboardScreen(
                     )
                     HospitalStatCard(
                         title = "Beds Available",
-                        value = "42",
+                        value = stats?.availableBeds?.toString() ?: "0",
                         icon = Icons.Filled.Hotel,
                         color = Success,
                         modifier = Modifier.weight(1f),

@@ -1,5 +1,6 @@
 package com.example.cloudcareapp.ui.screens.doctor
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,77 +12,208 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.cloudcareapp.ui.theme.*
-import com.example.cloudcareapp.data.MockDoctorData
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.cloudcareapp.data.cache.AppDataCache
 import com.example.cloudcareapp.data.model.*
+import com.example.cloudcareapp.data.remote.RetrofitClient
+import com.example.cloudcareapp.ui.theme.*
+import com.example.cloudcareapp.ui.viewmodel.DoctorProfileViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DoctorPatientsScreen(
     onBackClick: () -> Unit = {}
 ) {
-    val patients = remember { MockDoctorData.MOCK_ASSIGNED_PATIENTS }
+    val viewModel: DoctorProfileViewModel = viewModel()
+    val patients by viewModel.patients.observeAsState(emptyList())
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("My Patients (${patients.size})") },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DoctorPrimary
-                )
-            )
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedPatient by remember { mutableStateOf<DoctorPatientResponse?>(null) }
+    
+    LaunchedEffect(Unit) {
+        AppDataCache.getDoctorId()?.let { doctorId ->
+            viewModel.loadDoctorPatients(doctorId)
         }
-    ) { paddingValues ->
+    }
+    
+    // Tab filtering
+    val activePatients = patients.filter { it.status == "ACTIVE" && it.accessGranted }
+    // Include PENDING, LOCKED, and any non-active or non-granted patients
+    val inactivePatients = patients.filter { it.status != "ACTIVE" || !it.accessGranted }
+    
+    val tabTitles = listOf("Active (${activePatients.size})", "Inactive (${inactivePatients.size})")
+    
+    // Show detail screen if patient selected
+    if (selectedPatient != null) {
+        PatientDetailScreen(
+            patient = selectedPatient!!,
+            onBackClick = { selectedPatient = null },
+            onRemovePatient = {
+                scope.launch {
+                    try {
+                        val doctorId = AppDataCache.getDoctorId() ?: return@launch
+                        val response = withContext(Dispatchers.IO) {
+                            RetrofitClient.apiService.removePatient(doctorId, selectedPatient!!.patientId)
+                        }
+                        
+                        if (response.isSuccessful) {
+                            // Close detail screen first
+                            selectedPatient = null
+                            // Then reload list
+                            viewModel.loadDoctorPatients(doctorId)
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Patient removed successfully", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Failed to remove: ${response.code()}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Failed to remove: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        )
+        return
+    }
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DoctorBackground)
+    ) {
+        // TabRow
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = Surface,
+            contentColor = DoctorPrimary
+        ) {
+            tabTitles.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTab == index,
+                    onClick = { selectedTab = index },
+                    text = {
+                        Text(
+                            text = title,
+                            fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                )
+            }
+        }
+        
+        // Tab content
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(DoctorBackground)
-                .padding(paddingValues)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Critical patients section
-            val criticalPatients = patients.filter { it.status == PatientStatus.CRITICAL || it.emergencyFlag }
-            if (criticalPatients.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "⚠️ Critical Patients",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = DoctorError,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
+            when (selectedTab) {
+                0 -> {
+                    // Active patients
+                    if (activePatients.isEmpty()) {
+                        item {
+                            EmptyStateMessage("No active patients")
+                        }
+                    } else {
+                        items(activePatients) { patient ->
+                            PatientCard(
+                                patient = patient,
+                                onViewDetails = { selectedPatient = patient },
+                                onRemovePatient = {
+                                    scope.launch {
+                                        try {
+                                            val doctorId = AppDataCache.getDoctorId() ?: return@launch
+                                            val response = withContext(Dispatchers.IO) {
+                                                RetrofitClient.apiService.removePatient(doctorId, patient.patientId)
+                                            }
+                                            
+                                            if (response.isSuccessful) {
+                                                // Reload patient list after successful removal
+                                                viewModel.loadDoctorPatients(doctorId)
+                                                withContext(Dispatchers.Main) {
+                                                    Toast.makeText(context, "Patient removed successfully", Toast.LENGTH_SHORT).show()
+                                                }
+                                            } else {
+                                                withContext(Dispatchers.Main) {
+                                                    Toast.makeText(context, "Failed to remove: ${response.code()}", Toast.LENGTH_SHORT).show()
+                                                }
+                                            }
+                                        } catch (e: Exception) {
+                                            withContext(Dispatchers.Main) {
+                                                Toast.makeText(context, "Failed to remove: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
-                items(criticalPatients) { patient ->
-                    PatientCard(patient = patient, showEmergencyBanner = true)
-                }
-                
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "All Patients",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
+                1 -> {
+                    // Inactive patients
+                    if (inactivePatients.isEmpty()) {
+                        item {
+                            EmptyStateMessage("No inactive patients")
+                        }
+                    } else {
+                        items(inactivePatients) { patient ->
+                            PatientCard(
+                                patient = patient,
+                                isPrevious = true
+                            )
+                        }
+                    }
                 }
             }
             
-            // All other patients
-            items(patients.filter { it.status != PatientStatus.CRITICAL && !it.emergencyFlag }) { patient ->
-                PatientCard(patient = patient)
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
             }
+        }
+    }
+}
+
+@Composable
+fun EmptyStateMessage(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = TextTertiary
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyLarge,
+                color = TextSecondary
+            )
         }
     }
 }
@@ -89,26 +221,39 @@ fun DoctorPatientsScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PatientCard(
-    patient: AssignedPatient,
-    showEmergencyBanner: Boolean = false
+    patient: DoctorPatientResponse,
+    showEmergencyBanner: Boolean = false,
+    isPrevious: Boolean = false,
+    onViewDetails: (() -> Unit)? = null,
+    onRemovePatient: (() -> Unit)? = null
 ) {
+    var showRemoveDialog by remember { mutableStateOf(false) }
+    
     val statusColor = when (patient.status) {
-        PatientStatus.STABLE -> DoctorSuccess
-        PatientStatus.MONITORING -> DoctorWarning
-        PatientStatus.CRITICAL -> DoctorError
+        "STABLE" -> DoctorSuccess
+        "MONITORING" -> DoctorWarning
+        "CRITICAL" -> DoctorError
+        "ACTIVE" -> Primary
+        "LOCKED" -> TextSecondary
+        else -> DoctorTextSecondary
     }
     
     val statusIcon = when (patient.status) {
-        PatientStatus.STABLE -> Icons.Filled.CheckCircle
-        PatientStatus.MONITORING -> Icons.Filled.Warning
-        PatientStatus.CRITICAL -> Icons.Filled.Error
+        "STABLE" -> Icons.Filled.CheckCircle
+        "MONITORING" -> Icons.Filled.Warning
+        "CRITICAL" -> Icons.Filled.Error
+        "ACTIVE" -> Icons.Filled.CheckCircle
+        "LOCKED" -> Icons.Filled.Lock
+        else -> Icons.Filled.Help
     }
     
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (showEmergencyBanner) Error.copy(alpha = 0.05f) else Surface
+            containerColor = if (showEmergencyBanner) Error.copy(alpha = 0.05f) 
+                          else if (isPrevious) Surface.copy(alpha = 0.7f)
+                          else Surface
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (showEmergencyBanner) 4.dp else 2.dp
@@ -151,21 +296,22 @@ fun PatientCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 // Avatar
                 Box(
                     modifier = Modifier
                         .size(56.dp)
                         .clip(CircleShape)
-                        .background(Secondary.copy(alpha = 0.2f)),
+                        .background(Secondary.copy(alpha = if (isPrevious) 0.1f else 0.2f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = patient.name.split(" ").map { it.first() }.joinToString(""),
+                        text = patient.patientName.split(" ").map { it.first() }.joinToString("").take(2),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Secondary
+                        color = if (isPrevious) TextSecondary else Secondary
                     )
                 }
                 
@@ -174,21 +320,12 @@ fun PatientCard(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = patient.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "(${patient.age}, ${patient.gender})",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary
-                        )
-                    }
+                    Text(
+                        text = patient.patientName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isPrevious) TextSecondary else TextPrimary
+                    )
                     
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -198,95 +335,139 @@ fun PatientCard(
                             imageVector = statusIcon,
                             contentDescription = null,
                             tint = statusColor,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                         Text(
-                            text = "Status: ${patient.status.name}",
+                            text = patient.status,
                             style = MaterialTheme.typography.bodyMedium,
                             color = statusColor,
                             fontWeight = FontWeight.SemiBold
                         )
+                        if (patient.accessGranted && !isPrevious) {
+                            Text(
+                                text = "• ${patient.patientAge ?: "?"} yrs",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary
+                            )
+                        }
                     }
                     
-                    Text(
-                        text = "Condition: ${patient.condition}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextPrimary
-                    )
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    if (!patient.accessGranted) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color.Gray.copy(alpha = 0.1f),
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Lock,
+                                    contentDescription = null,
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(10.dp)
+                                )
+                                Text(
+                                    text = if (isPrevious) "Revoked" else "Pending",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Remove button for active patients
+                if (!isPrevious && onRemovePatient != null) {
+                    IconButton(
+                        onClick = { showRemoveDialog = true },
+                        modifier = Modifier.size(32.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Next Appointment",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextSecondary
-                            )
-                            Text(
-                                text = patient.nextAppointment,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                                color = if (patient.nextAppointment == "Emergency") Error else TextPrimary
-                            )
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Last Visit",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextSecondary
-                            )
-                            Text(
-                                text = patient.lastVisit,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Filled.PersonRemove,
+                            contentDescription = "Remove Patient",
+                            tint = Error,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
             
             // Action buttons
-            Divider()
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { /* TODO: View details */ },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Secondary
-                    )
+            if (!isPrevious) {
+                Divider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Visibility,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("View Details")
-                }
-                OutlinedButton(
-                    onClick = { /* TODO: Call patient */ },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Primary
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Phone,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Call")
+                    Button(
+                        onClick = { onViewDetails?.invoke() },
+                        modifier = Modifier.weight(1f),
+                        enabled = patient.accessGranted,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Secondary,
+                            disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = if (patient.accessGranted) Icons.Filled.Visibility else Icons.Filled.Lock,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("View Details")
+                    }
+                    OutlinedButton(
+                        onClick = { /* TODO: Call patient */ },
+                        modifier = Modifier.weight(1f),
+                        enabled = patient.accessGranted,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Primary,
+                            disabledContentColor = Color.Gray
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Phone,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Call")
+                    }
                 }
             }
         }
+    }
+    
+    // Remove confirmation dialog
+    if (showRemoveDialog) {
+        AlertDialog(
+            onDismissRequest = { showRemoveDialog = false },
+            title = { Text("Remove Patient?") },
+            text = { 
+                Text("This will revoke your access to ${patient.patientName}'s medical records. This action cannot be undone.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showRemoveDialog = false
+                        onRemovePatient?.invoke()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Error)
+                ) {
+                    Text("Remove")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoveDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -295,7 +476,7 @@ fun PatientCard(
 fun DoctorEmergencyScreen(
     onBackClick: () -> Unit = {}
 ) {
-    val alerts = remember { MockDoctorData.MOCK_EMERGENCY_ALERTS }
+    val alerts = emptyList<EmergencyAlert>() // TODO: Fetch from API
     
     Scaffold(
         topBar = {
@@ -543,8 +724,8 @@ fun EmergencyAlertCard(alert: EmergencyAlert) {
 fun DoctorScheduleScreen(
     onBackClick: () -> Unit = {}
 ) {
-    val todaysAppointments = remember { MockDoctorData.getTodaysAppointments() }
-    val allAppointments = remember { MockDoctorData.MOCK_DOCTOR_APPOINTMENTS }
+    val todaysAppointments = emptyList<DoctorAppointment>() // TODO: Fetch from API
+    val allAppointments = emptyList<DoctorAppointment>() // TODO: Fetch from API
     
     Scaffold(
         topBar = {
@@ -902,7 +1083,7 @@ fun AppointmentCard(appointment: DoctorAppointment) {
 fun DoctorRecordsScreen(
     onBackClick: () -> Unit = {}
 ) {
-    val records = remember { MockDoctorData.MOCK_PATIENT_RECORDS }
+    val records = emptyList<PatientRecord>() // TODO: Fetch from API
     var selectedRecordType by remember { mutableStateOf<DoctorRecordType?>(null) }
     
     val filteredRecords = if (selectedRecordType != null) {

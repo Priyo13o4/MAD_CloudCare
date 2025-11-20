@@ -61,4 +61,16 @@ object RetrofitClient {
     val apiService: CloudCareApiService by lazy {
         retrofit.create(CloudCareApiService::class.java)
     }
+    
+    /**
+     * Authentication API service instance
+     * 
+     * Use this for authentication operations:
+     * ```kotlin
+     * val response = RetrofitClient.authApiService.login(loginRequest)
+     * ```
+     */
+    val authApiService: AuthApiService by lazy {
+        retrofit.create(AuthApiService::class.java)
+    }
 }

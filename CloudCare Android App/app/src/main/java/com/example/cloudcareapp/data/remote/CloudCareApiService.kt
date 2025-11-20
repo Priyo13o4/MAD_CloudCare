@@ -189,10 +189,10 @@ interface CloudCareApiService {
      * @param request Upload request with file and metadata
      * @return Upload response with document ID and URL
      */
-    @POST("patients/documents/upload")
+    @POST("documents/upload")
     suspend fun uploadDocument(
-        @Body request: DocumentUploadRequest
-    ): DocumentUploadResponse
+        @Body request: CreateMedicalRecordRequest
+    ): MedicalRecordResponse
     
     /**
      * Get patient's documents
@@ -200,17 +200,17 @@ interface CloudCareApiService {
      * @param patientId Patient's unique ID
      * @return List of patient documents
      */
-    @GET("patients/{patient_id}/documents")
+    @GET("documents/{patient_id}")
     suspend fun getPatientDocuments(
         @Path("patient_id") patientId: String
-    ): DocumentsResponse
+    ): List<MedicalRecordResponse>
     
     /**
      * Delete a document
      * 
      * @param documentId Document ID to delete
      */
-    @DELETE("patients/documents/{document_id}")
+    @DELETE("documents/{document_id}")
     suspend fun deleteDocument(
         @Path("document_id") documentId: String
     ): Unit
@@ -256,8 +256,76 @@ interface CloudCareApiService {
     ): NotificationsResponse
     
     /**
+     * Get doctor's assigned patients
+     * 
+     * @param doctorId Doctor's unique ID
+     * @return List of assigned patients
+     */
+    @GET("doctors/{doctor_id}/patients")
+    suspend fun getDoctorPatients(
+        @Path("doctor_id") doctorId: String
+    ): List<DoctorPatientResponse>
+    
+    /**
+     * ========================================
+     * 🏥 HOSPITAL PROFILE
+     * ========================================
+     */
+    
+    /**
+     * Get hospital profile
+     * 
+     * @param hospitalId Hospital's unique ID
+     * @return Hospital profile data
+     */
+    @GET("hospitals/{hospital_id}/profile")
+    suspend fun getHospitalProfile(
+        @Path("hospital_id") hospitalId: String
+    ): HospitalProfileResponse
+
+    @GET("hospitals/")
+    suspend fun getHospitals(): List<HospitalProfileResponse>
+
+    @GET("hospitals/{hospital_id}/dashboard")
+    suspend fun getHospitalDashboardStats(
+        @Path("hospital_id") hospitalId: String
+    ): HospitalDashboardStats
+
+    @GET("hospitals/{hospital_id}/doctors")
+    suspend fun getHospitalDoctors(
+        @Path("hospital_id") hospitalId: String
+    ): List<DoctorSummary>
+
+    @GET("hospitals/{hospital_id}/patients")
+    suspend fun getHospitalPatients(
+        @Path("hospital_id") hospitalId: String,
+        @Query("status_filter") statusFilter: String? = null
+    ): List<PatientSummary>
+
+    @retrofit2.http.PUT("hospitals/{hospital_id}/resources")
+    suspend fun updateHospitalResources(
+        @Path("hospital_id") hospitalId: String,
+        @Body resources: ResourceUpdate
+    ): ResourceUpdateResponse
+
+    @POST("hospitals/{hospital_id}/patients/{patient_id}/discharge")
+    suspend fun dischargePatient(
+        @Path("hospital_id") hospitalId: String,
+        @Path("patient_id") patientId: String,
+        @Body request: DischargePatientRequest
+    ): GenericResponse
+
+    @POST("patients/lookup-records")
+    suspend fun lookupPatientRecords(
+        @Body request: RecordLookupRequest
+    ): List<MedicalRecordSummary>
+    
+    /**
      * ========================================
      * 👤 PATIENT PROFILE & DATA
+     * ========================================
+     * ========================================
+     * 🔐 CONSENT MANAGEMENT
      * ========================================
      */
     
@@ -271,16 +339,70 @@ interface CloudCareApiService {
     suspend fun getPatientProfile(
         @Path("patient_id") patientId: String
     ): PatientProfileResponse
+
+    /**
+     * Create consent request when doctor scans patient QR code
+     * 
+     * @param request Consent request data with patient_id, doctor_id, facility_name
+     * @return Created consent request
+     */
+    @POST("consents/request")
+    suspend fun createConsentRequest(
+        @Body request: CreateConsentRequest
+    ): ConsentResponse
     
     /**
-     * Update patient profile
+     * Get all consent requests for a patient
      * 
      * @param patientId Patient's unique ID
-     * @param request Updated profile data
+     * @param statusFilter Optional filter: PENDING, APPROVED, DENIED
+     * @return List of consent requests
      */
-    @POST("patients/{patient_id}/profile")
-    suspend fun updatePatientProfile(
+    @GET("consents/patient/{patient_id}")
+    suspend fun getPatientConsents(
         @Path("patient_id") patientId: String,
-        @Body request: UpdatePatientProfileRequest
-    ): PatientProfileResponse
+        @Query("status_filter") statusFilter: String? = null
+    ): List<ConsentResponse>
+    
+    /**
+     * Update consent request status (approve/deny)
+     * 
+     * @param consentId Consent request ID
+     * @param request Status update (APPROVED or DENIED)
+     * @return Updated consent request
+     */
+    @retrofit2.http.PATCH("consents/{consent_id}")
+    suspend fun updateConsentStatus(
+        @Path("consent_id") consentId: String,
+        @Body request: UpdateConsentRequest
+    ): ConsentResponse
+    
+    /**
+     * Delete consent request
+     * 
+     * @param consentId Consent request ID
+     */
+    @DELETE("consents/{consent_id}")
+    suspend fun deleteConsent(
+        @Path("consent_id") consentId: String
+    )
+    
+    /**
+     * Remove patient from doctor's patient list
+     * 
+     * @param doctorId Doctor ID
+     * @param patientId Patient ID
+     */
+    @DELETE("doctors/{doctor_id}/patients/{patient_id}")
+    suspend fun removePatient(
+        @Path("doctor_id") doctorId: String,
+        @Path("patient_id") patientId: String
+    ): retrofit2.Response<Unit>
+
+    @POST("hospitals/{hospital_id}/admit")
+    suspend fun admitPatient(
+        @Path("hospital_id") hospitalId: String,
+        @Body request: AdmitPatientRequest
+    ): AdmitPatientResponse
 }
+

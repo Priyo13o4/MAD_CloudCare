@@ -27,6 +27,7 @@ import com.example.cloudcareapp.navigation.*
 import com.example.cloudcareapp.ui.screens.about.AboutScreen
 import com.example.cloudcareapp.ui.screens.auth.*
 import com.example.cloudcareapp.ui.screens.consents.ConsentsScreen
+import com.example.cloudcareapp.ui.screens.patient.ConsentRequestsScreen
 import com.example.cloudcareapp.ui.screens.dashboard.DashboardScreen
 import com.example.cloudcareapp.ui.screens.doctor.DoctorDashboardScreen
 import com.example.cloudcareapp.ui.screens.doctor.DoctorEmergencyScreen
@@ -41,6 +42,7 @@ import com.example.cloudcareapp.ui.screens.facilities.FacilitiesScreen
 import com.example.cloudcareapp.ui.screens.help.HelpSupportScreen
 import com.example.cloudcareapp.ui.screens.hospital.HospitalAdmissionsScreen
 import com.example.cloudcareapp.ui.screens.hospital.HospitalDashboardScreen
+import com.example.cloudcareapp.ui.screens.hospital.HospitalMainScreen
 import com.example.cloudcareapp.ui.screens.hospital.HospitalProfileScreen
 import com.example.cloudcareapp.ui.screens.hospital.HospitalResourcesScreen
 import com.example.cloudcareapp.ui.screens.hospital.HospitalStaffScreen
@@ -82,7 +84,9 @@ fun CloudCareApp() {
     
     // Determine if we should show bottom nav and top bar
     val showBottomNav = currentDestination?.route in bottomNavItems.map { it.route }
-    val showTopBar = showBottomNav
+    val showDoctorBottomNav = currentDestination?.route in doctorBottomNavItems.map { it.route }
+    val showHospitalBottomNav = currentDestination?.route in hospitalBottomNavItems.map { it.route }
+    val showTopBar = showBottomNav || showDoctorBottomNav || showHospitalBottomNav
     
     // Logout function
     val handleLogout = {
@@ -163,6 +167,12 @@ fun CloudCareApp() {
                                 Screen.Records.route -> "My Records"
                                 Screen.ScanShare.route -> "Scan & Share"
                                 Screen.Consents.route -> "Consents"
+                                Screen.DoctorDashboard.route -> "Doctor Dashboard"
+                                Screen.DoctorPatients.route -> "My Patients"
+                                Screen.DoctorSchedule.route -> "Appointments"
+                                Screen.HospitalDashboard.route -> "Hospital Dashboard"
+                                Screen.HospitalAdmissions.route -> "Patients"
+                                Screen.HospitalStaff.route -> "Hospital Staff"
                                 else -> "CloudCare"
                             }
                         )
@@ -178,26 +188,55 @@ fun CloudCareApp() {
                         }
                     },
                     actions = {
-                        IconButton(onClick = { 
-                            navController.navigate(Screen.ScanShare.route)
-                        }) {
-                            Icon(Icons.Filled.QrCodeScanner, contentDescription = "QR Scanner")
-                        }
-                        BadgedBox(
-                            badge = {
-                                Badge { Text("18") }
+                        if (showDoctorBottomNav) {
+                            IconButton(onClick = { 
+                                navController.navigate(Screen.DoctorQRScanner.route)
+                            }) {
+                                Icon(Icons.Filled.QrCodeScanner, contentDescription = "QR Scanner")
                             }
-                        ) {
+                            IconButton(onClick = { 
+                                navController.navigate(Screen.DoctorNotifications.route)
+                            }) {
+                                Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
+                            }
+                            IconButton(onClick = { 
+                                navController.navigate(Screen.DoctorProfile.route)
+                            }) {
+                                Icon(Icons.Filled.AccountCircle, contentDescription = "Profile")
+                            }
+                        } else if (showHospitalBottomNav) {
                             IconButton(onClick = { 
                                 navController.navigate(Screen.Notifications.route)
                             }) {
                                 Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
                             }
-                        }
-                        IconButton(onClick = { 
-                            navController.navigate(Screen.Profile.route)
-                        }) {
-                            Icon(Icons.Filled.AccountCircle, contentDescription = "Profile")
+                            IconButton(onClick = { 
+                                navController.navigate(Screen.HospitalProfile.route)
+                            }) {
+                                Icon(Icons.Filled.AccountCircle, contentDescription = "Profile")
+                            }
+                        } else {
+                            IconButton(onClick = { 
+                                navController.navigate(Screen.ScanShare.route)
+                            }) {
+                                Icon(Icons.Filled.QrCodeScanner, contentDescription = "QR Scanner")
+                            }
+                            BadgedBox(
+                                badge = {
+                                    Badge { Text("18") }
+                                }
+                            ) {
+                                IconButton(onClick = { 
+                                    navController.navigate(Screen.Notifications.route)
+                                }) {
+                                    Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
+                                }
+                            }
+                            IconButton(onClick = { 
+                                navController.navigate(Screen.Profile.route)
+                            }) {
+                                Icon(Icons.Filled.AccountCircle, contentDescription = "Profile")
+                            }
                         }
                     }
                 )
@@ -207,6 +246,56 @@ fun CloudCareApp() {
             if (showBottomNav) {
                 NavigationBar {
                     bottomNavItems.forEach { screen ->
+                        val selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
+                        NavigationBarItem(
+                            icon = {
+                                Icon(
+                                    imageVector = getIconForRoute(screen.route, selected),
+                                    contentDescription = screen.title
+                                )
+                            },
+                            label = { Text(screen.title) },
+                            selected = selected,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        )
+                    }
+                }
+            } else if (showDoctorBottomNav) {
+                NavigationBar {
+                    doctorBottomNavItems.forEach { screen ->
+                        val selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
+                        NavigationBarItem(
+                            icon = {
+                                Icon(
+                                    imageVector = getIconForRoute(screen.route, selected),
+                                    contentDescription = screen.title
+                                )
+                            },
+                            label = { Text(screen.title) },
+                            selected = selected,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        )
+                    }
+                }
+            } else if (showHospitalBottomNav) {
+                NavigationBar {
+                    hospitalBottomNavItems.forEach { screen ->
                         val selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
                         NavigationBarItem(
                             icon = {
@@ -273,6 +362,23 @@ fun CloudCareApp() {
                     },
                     onBackClick = {
                         navController.popBackStack()
+                    },
+                    onSignupClick = {
+                        navController.navigate(Screen.PatientSignup.route)
+                    }
+                )
+            }
+            
+            // Patient Signup
+            composable(Screen.PatientSignup.route) {
+                PatientSignupScreen(
+                    onBackClick = {
+                        navController.popBackStack()
+                    },
+                    onSignupSuccess = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.LoginSelection.route) { inclusive = true }
+                        }
                     }
                 )
             }
@@ -287,6 +393,23 @@ fun CloudCareApp() {
                     },
                     onBackClick = {
                         navController.popBackStack()
+                    },
+                    onSignupClick = {
+                        navController.navigate(Screen.DoctorSignup.route)
+                    }
+                )
+            }
+            
+            // Doctor Signup
+            composable(Screen.DoctorSignup.route) {
+                DoctorSignupScreen(
+                    onBackClick = {
+                        navController.popBackStack()
+                    },
+                    onSignupSuccess = {
+                        navController.navigate(Screen.DoctorDashboard.route) {
+                            popUpTo(Screen.LoginSelection.route) { inclusive = true }
+                        }
                     }
                 )
             }
@@ -301,6 +424,23 @@ fun CloudCareApp() {
                     },
                     onBackClick = {
                         navController.popBackStack()
+                    },
+                    onSignupClick = {
+                        navController.navigate(Screen.HospitalSignup.route)
+                    }
+                )
+            }
+            
+            // Hospital Signup
+            composable(Screen.HospitalSignup.route) {
+                HospitalSignupScreen(
+                    onBackClick = {
+                        navController.popBackStack()
+                    },
+                    onSignupSuccess = {
+                        navController.navigate(Screen.HospitalDashboard.route) {
+                            popUpTo(Screen.LoginSelection.route) { inclusive = true }
+                        }
                     }
                 )
             }
@@ -379,9 +519,6 @@ fun CloudCareApp() {
                     onNotificationClick = {
                         navController.navigate(Screen.Notifications.route)
                     },
-                    onProfileClick = {
-                        navController.navigate(Screen.HospitalProfile.route)
-                    },
                     onNavigateToStaff = {
                         navController.navigate(Screen.HospitalStaff.route)
                     },
@@ -390,6 +527,9 @@ fun CloudCareApp() {
                     },
                     onNavigateToAdmissions = {
                         navController.navigate(Screen.HospitalAdmissions.route)
+                    },
+                    onProfileClick = {
+                        navController.navigate(Screen.HospitalProfile.route)
                     }
                 )
             }
@@ -413,7 +553,11 @@ fun CloudCareApp() {
             }
             
             composable(Screen.Consents.route) {
-                ConsentsScreen()
+                ConsentRequestsScreen(
+                    onBackClick = {
+                        navController.popBackStack()
+                    }
+                )
             }
             
             composable(Screen.LinkedFacilities.route) {
@@ -425,25 +569,10 @@ fun CloudCareApp() {
             }
             
             composable(Screen.Profile.route) {
-                ProfileScreen(
+                // ✅ FIX: Use PatientProfileScreen with real data instead of mock ProfileScreen
+                PatientProfileScreen(
                     onBackClick = {
                         navController.popBackStack()
-                    },
-                    onEditProfileClick = {
-                        navController.navigate(Screen.EditProfile.route)
-                    },
-                    onLogout = handleLogout,
-                    onNavigateToNotifications = {
-                        navController.navigate(Screen.Notifications.route)
-                    },
-                    onNavigateToPrivacy = {
-                        navController.navigate(Screen.PrivacySecurity.route)
-                    },
-                    onNavigateToHelp = {
-                        navController.navigate(Screen.HelpSupport.route)
-                    },
-                    onNavigateToAbout = {
-                        navController.navigate(Screen.About.route)
                     }
                 )
             }
@@ -542,9 +671,46 @@ fun CloudCareApp() {
             }
             
             composable(Screen.HospitalAdmissions.route) {
-                HospitalAdmissionsScreen(
+                com.example.cloudcareapp.ui.screens.hospital.HospitalPatientsScreen(
                     onBackClick = {
                         navController.popBackStack()
+                    },
+                    onPatientClick = { patientId ->
+                        // Navigate to patient details
+                        // We need a route for patient details. 
+                        // HospitalMainScreen used "patient_details/{patientId}"
+                        // We should probably add this route to Screen.kt or use a generic one.
+                        // For now, let's assume we can navigate to a new route.
+                        navController.navigate("hospital_patient_details/$patientId")
+                    }
+                )
+            }
+            
+            composable(
+                route = "hospital_patient_details/{patientId}",
+                arguments = listOf(androidx.navigation.navArgument("patientId") { type = androidx.navigation.NavType.StringType })
+            ) { backStackEntry ->
+                val patientId = backStackEntry.arguments?.getString("patientId") ?: return@composable
+                com.example.cloudcareapp.ui.screens.hospital.HospitalPatientDetailsScreen(
+                    patientId = patientId,
+                    onBackClick = {
+                        navController.popBackStack()
+                    },
+                    onViewRecords = { pid ->
+                        navController.navigate("records/$pid")
+                    }
+                )
+            }
+            
+            composable(
+                route = "records/{patientId}",
+                arguments = listOf(androidx.navigation.navArgument("patientId") { type = androidx.navigation.NavType.StringType })
+            ) { backStackEntry ->
+                val patientId = backStackEntry.arguments?.getString("patientId")
+                RecordsScreen(
+                    patientId = patientId,
+                    onNavigateToUpload = {
+                        // Upload disabled in viewer mode
                     }
                 )
             }
@@ -608,6 +774,17 @@ fun getIconForRoute(route: String, selected: Boolean): ImageVector {
         Screen.Records.route -> if (selected) Icons.Filled.Description else Icons.Outlined.Description
         Screen.ScanShare.route -> if (selected) Icons.Filled.QrCodeScanner else Icons.Outlined.QrCodeScanner
         Screen.Consents.route -> if (selected) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle
+        
+        // Doctor Icons
+        Screen.DoctorDashboard.route -> if (selected) Icons.Filled.Home else Icons.Outlined.Home
+        Screen.DoctorPatients.route -> if (selected) Icons.Filled.People else Icons.Outlined.People
+        Screen.DoctorSchedule.route -> if (selected) Icons.Filled.CalendarToday else Icons.Outlined.CalendarToday
+        
+        // Hospital Icons
+        Screen.HospitalDashboard.route -> if (selected) Icons.Filled.Home else Icons.Outlined.Home
+        Screen.HospitalAdmissions.route -> if (selected) Icons.Filled.People else Icons.Outlined.People
+        Screen.HospitalStaff.route -> if (selected) Icons.Filled.Badge else Icons.Outlined.Badge
+        
         else -> Icons.Filled.Home
     }
 }

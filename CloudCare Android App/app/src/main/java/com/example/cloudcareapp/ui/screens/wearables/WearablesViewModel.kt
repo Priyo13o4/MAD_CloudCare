@@ -23,14 +23,14 @@ import java.io.File
 import java.time.LocalDateTime
 
 class WearablesViewModel(
-    application: Application
+    application: Application,
+    private val patientId: String
 ) : AndroidViewModel(application) {
     
     private val healthMetricsRepository: HealthMetricsRepository = HealthMetricsRepository()
     private val gson = Gson()
     
     companion object {
-        const val PATIENT_ID = "3228128A-7110-4D47-8EDB-3A9160E3808A"
         private const val TAG = "WearablesViewModel"
         private const val CACHE_FILE_SUMMARY = "cache_summary.json"
         private const val CACHE_FILE_DEVICES = "cache_devices.json"
@@ -170,7 +170,7 @@ class WearablesViewModel(
         return try {
             Log.d(TAG, "Loading comprehensive metrics (ALL data in one call)")
             val result = healthMetricsRepository.getComprehensiveMetrics(
-                patientId = PATIENT_ID,
+                patientId = patientId,
                 days = days
             )
 
@@ -327,7 +327,7 @@ class WearablesViewModel(
      */
     private suspend fun fetchTodaySummaryAndDevices() {
         // Fetch today's summary
-        val summaryResult = healthMetricsRepository.getTodaySummary(PATIENT_ID)
+        val summaryResult = healthMetricsRepository.getTodaySummary(patientId)
         summaryResult.onSuccess { todayResponse ->
             AppDataCache.setTodaySummary(todayResponse)
             AppDataCache.updateLastSyncTime()
@@ -337,7 +337,7 @@ class WearablesViewModel(
         }
 
         // Fetch devices list
-        val devicesResult = healthMetricsRepository.getPairedDevices(PATIENT_ID)
+        val devicesResult = healthMetricsRepository.getPairedDevices(patientId)
         devicesResult.onSuccess { devices ->
             AppDataCache.setDevices(devices)
             AppDataCache.updateLastSyncTime()
@@ -429,7 +429,7 @@ class WearablesViewModel(
         Log.d(TAG, "No cached heart rate data, fetching from backend")
         viewModelScope.launch {
             // Use getAggregatedMetrics with hourly period
-            val result = healthMetricsRepository.getAggregatedMetrics(PATIENT_ID, "hourly", 1)
+            val result = healthMetricsRepository.getAggregatedMetrics(patientId, "hourly", 1)
             result.onSuccess { response ->
                 val hourlyData = response.metrics["heart_rate"]?.map { point ->
                     HeartRateTrendDataPoint(
@@ -527,7 +527,7 @@ class WearablesViewModel(
             try {
                 Log.d(TAG, "Loading sleep trends for $days days")
                 val result = healthMetricsRepository.getSleepTrends(
-                    patientId = PATIENT_ID,
+                    patientId = patientId,
                     days = days
                 )
                 
@@ -555,7 +555,7 @@ class WearablesViewModel(
             try {
                 Log.d(TAG, "Loading heart rate trends for $days days")
                 val result = healthMetricsRepository.getHeartRateTrends(
-                    patientId = PATIENT_ID,
+                    patientId = patientId,
                     days = days
                 )
                 
@@ -600,7 +600,7 @@ class WearablesViewModel(
             try {
                 AppDataCache.setSyncing(true)
                 
-                val summaryResult = healthMetricsRepository.getTodaySummary(PATIENT_ID)
+                val summaryResult = healthMetricsRepository.getTodaySummary(patientId)
                 summaryResult.onSuccess { todayResponse ->
                     AppDataCache.setTodaySummary(todayResponse)
                     AppDataCache.updateLastSyncTime()
@@ -612,7 +612,7 @@ class WearablesViewModel(
                     Log.d(TAG, "Summary refresh failed, will show cached data")
                 }
 
-                val devicesResult = healthMetricsRepository.getPairedDevices(PATIENT_ID)
+                val devicesResult = healthMetricsRepository.getPairedDevices(patientId)
                 devicesResult.onSuccess { devices ->
                     AppDataCache.setDevices(devices)
                     AppDataCache.updateLastSyncTime()
@@ -624,7 +624,7 @@ class WearablesViewModel(
                 }
 
                 val metricsResult = healthMetricsRepository.getAggregatedMetrics(
-                    patientId = PATIENT_ID,
+                    patientId = patientId,
                     period = _selectedPeriod.value,
                     days = _selectedDateRange.value
                 )
@@ -661,7 +661,7 @@ class WearablesViewModel(
                     generatedAt = pairingData.generatedAt,
                     expiresAt = pairingData.expiresAt,
                     pairingCode = pairingData.pairingCode,
-                    androidUserId = PATIENT_ID
+                    androidUserId = patientId
                 )
                 
                 val result = healthMetricsRepository.pairDevice(request)
@@ -670,7 +670,7 @@ class WearablesViewModel(
                     // Backend returns 201 on success with pairing details
                     onResult(true, response.message)
                     // Reload devices after successful pairing
-                    val devicesResult = healthMetricsRepository.getPairedDevices(PATIENT_ID)
+                    val devicesResult = healthMetricsRepository.getPairedDevices(patientId)
                     devicesResult.onSuccess { devices ->
                         AppDataCache.setDevices(devices)
                         AppDataCache.updateLastSyncTime()
@@ -695,7 +695,7 @@ class WearablesViewModel(
                 result.onSuccess {
                     onResult(true, "Device unpaired successfully")
                     // Reload devices after successful unpair
-                    val devicesResult = healthMetricsRepository.getPairedDevices(PATIENT_ID)
+                    val devicesResult = healthMetricsRepository.getPairedDevices(patientId)
                     devicesResult.onSuccess { devices ->
                         AppDataCache.setDevices(devices)
                         AppDataCache.updateLastSyncTime()

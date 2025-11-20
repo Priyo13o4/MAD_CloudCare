@@ -78,3 +78,100 @@ enum class ResourceCategory {
 enum class ResourceStatus {
     NORMAL, LOW, CRITICAL
 }
+
+// ==================== API Response Models ====================
+
+data class HospitalProfileResponse(
+    val id: String,
+    @com.google.gson.annotations.SerializedName("user_id") val userId: String,
+    val name: String,
+    val email: String,
+    @com.google.gson.annotations.SerializedName("phone_primary") val phonePrimary: String?,
+    @com.google.gson.annotations.SerializedName("phone_emergency") val phoneEmergency: String?,
+    @com.google.gson.annotations.SerializedName("registration_no") val registrationNo: String?,
+    @com.google.gson.annotations.SerializedName("hospital_code") val hospitalCode: String?,
+    @com.google.gson.annotations.SerializedName("address_line1") val addressLine1: String?,
+    @com.google.gson.annotations.SerializedName("address_line2") val addressLine2: String?,
+    val city: String?,
+    val state: String?,
+    @com.google.gson.annotations.SerializedName("postal_code") val postalCode: String?,
+    @com.google.gson.annotations.SerializedName("total_beds") val totalBeds: Int,
+    @com.google.gson.annotations.SerializedName("available_beds") val availableBeds: Int,
+    @com.google.gson.annotations.SerializedName("icu_beds") val icuBeds: Int = 0,
+    @com.google.gson.annotations.SerializedName("emergency_beds") val emergencyBeds: Int = 0,
+    @com.google.gson.annotations.SerializedName("oxygen_cylinders") val oxygenCylinders: Int = 0,
+    @com.google.gson.annotations.SerializedName("ventilators") val ventilators: Int = 0,
+    @com.google.gson.annotations.SerializedName("ambulances") val ambulances: Int = 0,
+    @com.google.gson.annotations.SerializedName("blood_bags") val bloodBags: Int = 0,
+    @com.google.gson.annotations.SerializedName("total_doctors") val totalDoctors: Int,
+    val specializations: String?,
+    @com.google.gson.annotations.SerializedName("created_at") val createdAt: String
+)
+
+data class HospitalDashboardStats(
+    @com.google.gson.annotations.SerializedName("total_patients") val totalPatients: Int,
+    @com.google.gson.annotations.SerializedName("total_doctors") val totalDoctors: Int,
+    @com.google.gson.annotations.SerializedName("emergency_cases") val emergencyCases: Int,
+    @com.google.gson.annotations.SerializedName("available_beds") val availableBeds: Int,
+    @com.google.gson.annotations.SerializedName("total_beds") val totalBeds: Int,
+    @com.google.gson.annotations.SerializedName("occupancy_rate") val occupancyRate: Float
+)
+
+data class DoctorSummary(
+    val id: String,
+    val name: String,
+    val specialization: String,
+    @com.google.gson.annotations.SerializedName("is_available") val isAvailable: Boolean,
+    val phone: String?
+)
+
+data class PatientSummary(
+    val id: String,
+    val name: String,
+    val age: Int,
+    val gender: String,
+    val status: String,
+    @com.google.gson.annotations.SerializedName("last_visit") val lastVisit: String?
+)
+
+data class ResourceUpdate(
+    @com.google.gson.annotations.SerializedName("total_beds") val totalBeds: Int? = null,
+    @com.google.gson.annotations.SerializedName("available_beds") val availableBeds: Int? = null,
+    @com.google.gson.annotations.SerializedName("icu_beds") val icuBeds: Int? = null,
+    @com.google.gson.annotations.SerializedName("emergency_beds") val emergencyBeds: Int? = null,
+    @com.google.gson.annotations.SerializedName("oxygen_cylinders") val oxygenCylinders: Int? = null,
+    @com.google.gson.annotations.SerializedName("ventilators") val ventilators: Int? = null,
+    @com.google.gson.annotations.SerializedName("ambulances") val ambulances: Int? = null,
+    @com.google.gson.annotations.SerializedName("blood_bags") val bloodBags: Int? = null
+)
+
+data class ResourceUpdateResponse(
+    val success: Boolean,
+    val message: String,
+    val data: Any?
+)
+
+data class RecordLookupRequest(
+    @com.google.gson.annotations.SerializedName("hospital_id") val hospitalId: String,
+    @com.google.gson.annotations.SerializedName("aadhar_number") val aadharNumber: String
+)
+
+data class MedicalRecordSummary(
+    val id: String,
+    val title: String,
+    val date: String,
+    val type: String,
+    val description: String,
+    @com.google.gson.annotations.SerializedName("doctor_name") val doctorName: String?
+)
+
+data class AdmitPatientRequest(
+    @com.google.gson.annotations.SerializedName("aadhar_number") val aadharNumber: String,
+    val reason: String = "Hospital Admission"
+)
+
+data class AdmitPatientResponse(
+    val success: Boolean,
+    val message: String,
+    @com.google.gson.annotations.SerializedName("consent_id") val consentId: String?
+)

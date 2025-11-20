@@ -24,20 +24,57 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.cloudcareapp.ui.viewmodel.AuthViewModel
+import androidx.compose.runtime.livedata.observeAsState
+import com.example.cloudcareapp.data.model.UserRole
 import com.example.cloudcareapp.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DoctorLoginScreen(
     onBackClick: () -> Unit,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    onSignupClick: () -> Unit = {}
 ) {
-    var email by remember { mutableStateOf("dr.suresh.krishnan@gmail.com") }
-    var password by remember { mutableStateOf("Doctor@123") }
+    val viewModel: AuthViewModel = viewModel()
+    val authState by viewModel.authState.observeAsState()
+    val isLoading by viewModel.isLoading.observeAsState(false)
+    val errorMessage by viewModel.errorMessage.observeAsState()
+    
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+    
+    // Handle Auth State Changes
+    LaunchedEffect(authState) {
+        when (authState) {
+            is AuthViewModel.AuthState.Success -> {
+                val session = (authState as AuthViewModel.AuthState.Success).session
+                if (session.user.role == UserRole.DOCTOR) {
+                    Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
+                    onLoginSuccess()
+                } else {
+                    Toast.makeText(context, "This account is not a Doctor account", Toast.LENGTH_LONG).show()
+                    viewModel.logout()
+                }
+            }
+            is AuthViewModel.AuthState.Error -> {
+                // Error is handled by the UI displaying the message
+            }
+            else -> {}
+        }
+    }
+    
+    // Show error toast if needed
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            viewModel.clearError()
+        }
+    }
     
     Scaffold(
         topBar = {
@@ -98,51 +135,6 @@ fun DoctorLoginScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // Demo Credentials Info
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Secondary.copy(alpha = 0.1f)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Info,
-                        contentDescription = null,
-                        tint = Secondary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Demo Doctor Credentials",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Secondary
-                        )
-                        Text(
-                            text = "Dr. Suresh Krishnan (Cardiology)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "Password: Doctor@123",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -194,12 +186,8 @@ fun DoctorLoginScreen(
             Button(
                 onClick = {
                     if (email.isNotBlank() && password.isNotBlank()) {
-                        isLoading = true
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            isLoading = false
-                            Toast.makeText(context, "Doctor login successful!", Toast.LENGTH_SHORT).show()
-                            onLoginSuccess()
-                        }, 1500)
+                        focusManager.clearFocus()
+                        viewModel.login(email, password)
                     } else {
                         Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
                     }
@@ -227,11 +215,54 @@ fun DoctorLoginScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            TextButton(onClick = {
-                Toast.makeText(context, "Password recovery coming soon", Toast.LENGTH_SHORT).show()
-            }) {
+            TextButton(
+                onClick = {
+                    Toast.makeText(context, "Password recovery coming soon", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("Forgot Password?")
             }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // Divider
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Divider(modifier = Modifier.weight(1f))
+                Text(
+                    text = "  OR  ",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Divider(modifier = Modifier.weight(1f))
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Signup Button
+            OutlinedButton(
+                onClick = onSignupClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PersonAdd,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Register as Doctor",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

@@ -6,6 +6,9 @@ sealed class Screen(val route: String) {
     object PatientLogin : Screen("patient_login")
     object DoctorLogin : Screen("doctor_login")
     object HospitalLogin : Screen("hospital_login")
+    object PatientSignup : Screen("patient_signup")
+    object DoctorSignup : Screen("doctor_signup")
+    object HospitalSignup : Screen("hospital_signup")
     
     // Patient Screens
     object Dashboard : Screen("dashboard")
@@ -78,4 +81,60 @@ val bottomNavItems = listOf(
     BottomNavItem.Records,
     BottomNavItem.ScanShare,
     BottomNavItem.Consents
+)
+
+sealed class DoctorBottomNavItem(
+    val route: String,
+    val title: String,
+    val icon: String
+) {
+    object Dashboard : DoctorBottomNavItem(
+        route = Screen.DoctorDashboard.route,
+        title = "Dashboard",
+        icon = "home"
+    )
+    object Patients : DoctorBottomNavItem(
+        route = Screen.DoctorPatients.route,
+        title = "Patients",
+        icon = "people"
+    )
+    object Appointments : DoctorBottomNavItem(
+        route = Screen.DoctorSchedule.route,
+        title = "Appointments",
+        icon = "calendar_today"
+    )
+}
+
+val doctorBottomNavItems = listOf(
+    DoctorBottomNavItem.Dashboard,
+    DoctorBottomNavItem.Patients,
+    DoctorBottomNavItem.Appointments
+)
+
+sealed class HospitalBottomNavItem(
+    val route: String,
+    val title: String,
+    val icon: String
+) {
+    object Dashboard : HospitalBottomNavItem(
+        route = Screen.HospitalDashboard.route,
+        title = "Dashboard",
+        icon = "home"
+    )
+    object Patients : HospitalBottomNavItem(
+        route = Screen.HospitalAdmissions.route,
+        title = "Patients",
+        icon = "people"
+    )
+    object Staff : HospitalBottomNavItem(
+        route = Screen.HospitalStaff.route,
+        title = "Staff",
+        icon = "badge"
+    )
+}
+
+val hospitalBottomNavItems = listOf(
+    HospitalBottomNavItem.Dashboard,
+    HospitalBottomNavItem.Patients,
+    HospitalBottomNavItem.Staff
 )

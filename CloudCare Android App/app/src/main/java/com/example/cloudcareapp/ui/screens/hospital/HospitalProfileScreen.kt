@@ -16,6 +16,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.cloudcareapp.ui.viewmodel.HospitalProfileViewModel
+import androidx.compose.runtime.livedata.observeAsState
+import com.example.cloudcareapp.data.cache.AppDataCache
+import com.example.cloudcareapp.data.model.HospitalProfileResponse
 import com.example.cloudcareapp.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -23,6 +28,15 @@ import com.example.cloudcareapp.ui.theme.*
 fun HospitalProfileScreen(
     onBackClick: () -> Unit
 ) {
+    val viewModel: HospitalProfileViewModel = viewModel()
+    val hospitalProfile by viewModel.hospitalProfile.observeAsState()
+    
+    LaunchedEffect(Unit) {
+        AppDataCache.getHospitalId()?.let { hospitalId ->
+            viewModel.loadHospitalProfile(hospitalId)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -48,7 +62,7 @@ fun HospitalProfileScreen(
         ) {
             // Hospital Header
             item {
-                HospitalHeader()
+                HospitalHeader(hospitalProfile)
             }
             
             // Hospital Information Section
@@ -60,7 +74,15 @@ fun HospitalProfileScreen(
                 HospitalInfoCard(
                     icon = Icons.Filled.LocalHospital,
                     label = "Hospital Name",
-                    value = "Apollo Hospital"
+                    value = hospitalProfile?.name ?: "Loading..."
+                )
+            }
+            
+            item {
+                HospitalInfoCard(
+                    icon = Icons.Filled.QrCode,
+                    label = "Hospital Code",
+                    value = hospitalProfile?.hospitalCode ?: "N/A"
                 )
             }
             
@@ -68,7 +90,7 @@ fun HospitalProfileScreen(
                 HospitalInfoCard(
                     icon = Icons.Filled.LocationOn,
                     label = "Location",
-                    value = "Bangalore, Karnataka"
+                    value = if (hospitalProfile?.city != null) "${hospitalProfile?.city}, ${hospitalProfile?.state}" else "Loading..."
                 )
             }
             
@@ -76,7 +98,7 @@ fun HospitalProfileScreen(
                 HospitalInfoCard(
                     icon = Icons.Filled.Phone,
                     label = "Phone",
-                    value = "+91 80 4060 0000"
+                    value = hospitalProfile?.phonePrimary ?: "Loading..."
                 )
             }
             
@@ -84,7 +106,7 @@ fun HospitalProfileScreen(
                 HospitalInfoCard(
                     icon = Icons.Filled.Email,
                     label = "Email",
-                    value = "contact@apollohospital.com"
+                    value = hospitalProfile?.email ?: "Loading..."
                 )
             }
             
@@ -97,7 +119,7 @@ fun HospitalProfileScreen(
                 HospitalInfoCard(
                     icon = Icons.Filled.People,
                     label = "Total Doctors",
-                    value = "24"
+                    value = hospitalProfile?.totalDoctors?.toString() ?: "0"
                 )
             }
             
@@ -105,15 +127,15 @@ fun HospitalProfileScreen(
                 HospitalInfoCard(
                     icon = Icons.Filled.Hotel,
                     label = "Total Beds",
-                    value = "150"
+                    value = hospitalProfile?.totalBeds?.toString() ?: "0"
                 )
             }
             
             item {
                 HospitalInfoCard(
                     icon = Icons.Filled.Visibility,
-                    label = "Current Occupancy",
-                    value = "87%"
+                    label = "Available Beds",
+                    value = hospitalProfile?.availableBeds?.toString() ?: "0"
                 )
             }
             
@@ -123,31 +145,25 @@ fun HospitalProfileScreen(
             }
             
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    ServiceChip("Cardiology")
-                    ServiceChip("Orthopedics")
-                }
-            }
-            
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    ServiceChip("Neurology")
-                    ServiceChip("Pediatrics")
-                }
-            }
-            
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    ServiceChip("General Surgery")
+                val services = hospitalProfile?.specializations?.let { specs ->
+                    specs.replace("[", "").replace("]", "").replace("\"", "").split(",")
+                } ?: emptyList()
+                
+                if (services.isNotEmpty()) {
+                     Column {
+                        services.chunked(2).forEach { rowItems ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                rowItems.forEach { service ->
+                                    ServiceChip(service.trim())
+                                }
+                            }
+                        }
+                     }
+                } else {
+                     Text("No services listed", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
                 }
             }
             
@@ -159,7 +175,7 @@ fun HospitalProfileScreen(
 }
 
 @Composable
-private fun HospitalHeader() {
+private fun HospitalHeader(hospitalProfile: HospitalProfileResponse?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -191,12 +207,12 @@ private fun HospitalHeader() {
             
             Column {
                 Text(
-                    text = "Apollo Hospital",
+                    text = hospitalProfile?.name ?: "Loading...",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Bangalore, Karnataka",
+                    text = if (hospitalProfile?.city != null) "${hospitalProfile.city}, ${hospitalProfile.state}" else "Loading...",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )

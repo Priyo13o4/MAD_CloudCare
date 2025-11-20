@@ -88,14 +88,14 @@ object MockDataRepository {
         Facility(
             id = 2,
             name = "Dr Lal Pathlabs NRL-HIP",
-            type = FacilityType.LAB,
+            type = FacilityType.DIAGNOSTIC_CENTER,
             patientId = "REF00117-25",
             iconType = FacilityIconType.LAB
         ),
         Facility(
             id = 3,
             name = "Kidney Center Hospital",
-            type = FacilityType.HOSPITAL,
+            type = FacilityType.GENERAL_HOSPITAL,
             patientId = "22585",
             iconType = FacilityIconType.HOSPITAL
         )

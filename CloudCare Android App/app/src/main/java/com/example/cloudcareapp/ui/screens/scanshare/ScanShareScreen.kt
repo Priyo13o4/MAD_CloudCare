@@ -38,29 +38,63 @@ fun ScanShareScreen() {
     val scope = rememberCoroutineScope()
     
     // Get patient ID from cache
-    val patientId = remember { AppDataCache.getPatientId() ?: "7" }
-    val patientName = remember { AppDataCache.getPatientName() ?: "Mobile Test User" }
+    val patientId = remember { AppDataCache.getPatientId() }
+    val patientName = remember { AppDataCache.getPatientName() ?: AppDataCache.getUserName() ?: "Patient" }
     
     // Generate QR code on first composition
     LaunchedEffect(patientId) {
-        scope.launch(Dispatchers.IO) {
-            val qrData = PatientQRData(
-                patientId = patientId,
-                type = "patient_health_record",
-                apiVersion = "v1",
-                timestamp = System.currentTimeMillis()
-            )
-            
-            val jsonData = Gson().toJson(qrData)
-            val bitmap = QRCodeGenerator.generateQRCode(
-                data = jsonData,
-                size = 800
-            )
-            
-            withContext(Dispatchers.Main) {
-                qrCodeBitmap = bitmap
+        if (patientId != null) {
+            scope.launch(Dispatchers.IO) {
+                val qrData = PatientQRData(
+                    patientId = patientId,
+                    type = "patient_health_record",
+                    apiVersion = "v1",
+                    timestamp = System.currentTimeMillis()
+                )
+                
+                val jsonData = Gson().toJson(qrData)
+                val bitmap = QRCodeGenerator.generateQRCode(
+                    data = jsonData,
+                    size = 800
+                )
+                
+                withContext(Dispatchers.Main) {
+                    qrCodeBitmap = bitmap
+                }
             }
         }
+    }
+    
+    // Show error if no patient ID
+    if (patientId == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.ErrorOutline,
+                    contentDescription = null,
+                    tint = Error,
+                    modifier = Modifier.size(64.dp)
+                )
+                Text(
+                    text = "Patient ID not found",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextPrimary
+                )
+                Text(
+                    text = "Please login again to generate QR code",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        return
     }
     
     // Main screen with QR display

@@ -53,6 +53,32 @@ object AppDataCache {
     private var cachedPatientId: String? = null
     private var cachedPatientName: String? = null
     
+    // Doctor info cache
+    private var cachedDoctorId: String? = null
+    
+    // Hospital info cache
+    private var cachedHospitalId: String? = null
+    
+    // User name cache (for all roles)
+    private var cachedUserName: String? = null
+    
+    // Hospital Cache
+    private val _hospitalDashboardCache = MutableStateFlow<HospitalDashboardStats?>(null)
+    val hospitalDashboardCache: StateFlow<HospitalDashboardStats?> = _hospitalDashboardCache.asStateFlow()
+
+    private val _hospitalPatientsCache = MutableStateFlow<List<PatientSummary>>(emptyList())
+    val hospitalPatientsCache: StateFlow<List<PatientSummary>> = _hospitalPatientsCache.asStateFlow()
+
+    private val _hospitalDoctorsCache = MutableStateFlow<List<DoctorSummary>>(emptyList())
+    val hospitalDoctorsCache: StateFlow<List<DoctorSummary>> = _hospitalDoctorsCache.asStateFlow()
+
+    private val _hospitalProfileCache = MutableStateFlow<HospitalProfileResponse?>(null)
+    val hospitalProfileCache: StateFlow<HospitalProfileResponse?> = _hospitalProfileCache.asStateFlow()
+
+    // Doctor Profile Cache
+    private val _doctorProfileCache = MutableStateFlow<DoctorProfileResponse?>(null)
+    val doctorProfileCache: StateFlow<DoctorProfileResponse?> = _doctorProfileCache.asStateFlow()
+
     /**
      * Get cached patient ID
      */
@@ -79,6 +105,48 @@ object AppDataCache {
      */
     fun setPatientName(patientName: String) {
         this.cachedPatientName = patientName
+    }
+    
+    /**
+     * Get cached doctor ID
+     */
+    fun getDoctorId(): String? {
+        return cachedDoctorId
+    }
+    
+    /**
+     * Set doctor ID cache
+     */
+    fun setDoctorId(doctorId: String) {
+        this.cachedDoctorId = doctorId
+    }
+    
+    /**
+     * Get cached hospital ID
+     */
+    fun getHospitalId(): String? {
+        return cachedHospitalId
+    }
+    
+    /**
+     * Set hospital ID cache
+     */
+    fun setHospitalId(hospitalId: String) {
+        this.cachedHospitalId = hospitalId
+    }
+    
+    /**
+     * Get cached user name (for all roles)
+     */
+    fun getUserName(): String? {
+        return cachedUserName
+    }
+    
+    /**
+     * Set user name cache (for all roles)
+     */
+    fun setUserName(userName: String) {
+        this.cachedUserName = userName
     }
     
     /**
@@ -178,6 +246,93 @@ object AppDataCache {
     }
     
     /**
+     * Get cached hospital dashboard stats
+     */
+    fun getHospitalDashboardStats(): HospitalDashboardStats? {
+        return _hospitalDashboardCache.value
+    }
+
+    /**
+     * Set hospital dashboard stats cache
+     */
+    fun setHospitalDashboardStats(stats: HospitalDashboardStats) {
+        Log.d(TAG, "Caching hospital dashboard stats")
+        _hospitalDashboardCache.value = stats
+        _lastSyncTimes["hospital_dashboard"] = LocalDateTime.now()
+    }
+
+    /**
+     * Get cached hospital patients
+     */
+    fun getHospitalPatients(): List<PatientSummary> {
+        return _hospitalPatientsCache.value
+    }
+
+    /**
+     * Set hospital patients cache
+     */
+    fun setHospitalPatients(patients: List<PatientSummary>) {
+        Log.d(TAG, "Caching ${patients.size} hospital patients")
+        _hospitalPatientsCache.value = patients
+        _lastSyncTimes["hospital_patients"] = LocalDateTime.now()
+    }
+
+    /**
+     * Get cached hospital doctors
+     */
+    fun getHospitalDoctors(): List<DoctorSummary> {
+        return _hospitalDoctorsCache.value
+    }
+
+    /**
+     * Set hospital doctors cache
+     */
+    fun setHospitalDoctors(doctors: List<DoctorSummary>) {
+        Log.d(TAG, "Caching ${doctors.size} hospital doctors")
+        _hospitalDoctorsCache.value = doctors
+        _lastSyncTimes["hospital_doctors"] = LocalDateTime.now()
+    }
+
+    /**
+     * Get cached hospital profile
+     */
+    fun getHospitalProfile(): HospitalProfileResponse? {
+        return _hospitalProfileCache.value
+    }
+
+    /**
+     * Set hospital profile cache
+     */
+    fun setHospitalProfile(profile: HospitalProfileResponse) {
+        Log.d(TAG, "Caching hospital profile")
+        _hospitalProfileCache.value = profile
+        _lastSyncTimes["hospital_profile"] = LocalDateTime.now()
+    }
+
+    /**
+     * Get cached doctor profile
+     */
+    fun getDoctorProfile(): DoctorProfileResponse? {
+        return _doctorProfileCache.value
+    }
+
+    /**
+     * Set doctor profile cache
+     */
+    fun setDoctorProfile(profile: DoctorProfileResponse) {
+        Log.d(TAG, "Caching doctor profile")
+        _doctorProfileCache.value = profile
+        _lastSyncTimes["doctor_profile"] = LocalDateTime.now()
+    }
+
+    /**
+     * Check if hospital cache has valid data
+     */
+    fun hasHospitalData(): Boolean {
+        return _hospitalDashboardCache.value != null
+    }
+    
+    /**
      * Clear all cached data
      */
     fun clearAll() {
@@ -187,6 +342,14 @@ object AppDataCache {
         _metricsCache.clear()
         _metricsCacheFlow.value = emptyMap()
         _comprehensiveMetricsCache.value = null
+        
+        // Clear hospital cache
+        _hospitalDashboardCache.value = null
+        _hospitalPatientsCache.value = emptyList()
+        _hospitalDoctorsCache.value = emptyList()
+        _hospitalProfileCache.value = null
+        _doctorProfileCache.value = null
+        
         _lastSyncTimes.clear()
         _lastSyncTimeFlow.value = null
     }

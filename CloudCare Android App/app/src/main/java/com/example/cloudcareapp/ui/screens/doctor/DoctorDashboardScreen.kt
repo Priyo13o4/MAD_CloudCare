@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,10 +20,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.cloudcareapp.data.cache.AppDataCache
 import com.example.cloudcareapp.data.model.PatientQRData
 import com.example.cloudcareapp.data.remote.RetrofitClient
 import com.example.cloudcareapp.ui.components.CommonTopAppBar
 import com.example.cloudcareapp.ui.theme.*
+import com.example.cloudcareapp.ui.viewmodel.DoctorProfileViewModel
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -42,196 +46,185 @@ fun DoctorDashboardScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToQRScanner: () -> Unit = {}
 ) {
+    val viewModel: DoctorProfileViewModel = viewModel()
+    val doctorProfile by viewModel.doctorProfile.observeAsState()
+    val patients by viewModel.patients.observeAsState(emptyList())
     
-    Scaffold(
-        topBar = {
-            CommonTopAppBar(
-                title = "Doctor Dashboard",
-                onMenuClick = onMenuClick,
-                onQRScanClick = onNavigateToQRScanner,
-                notificationCount = 3,
-                onNotificationClick = onNavigateToNotifications,
-                onProfileClick = onNavigateToProfile,
-                showQRScanner = true,
-                showNotifications = true,
-                showProfile = true,
-                showSettingsMenu = false,
-                backgroundColor = DoctorPrimary,
-                isDoctorTheme = true
-            )
+    LaunchedEffect(Unit) {
+        AppDataCache.getDoctorId()?.let { doctorId ->
+            viewModel.refresh(doctorId)
         }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(DoctorBackground)
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                // Welcome Card with Professional Gradient
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color.Transparent
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(DoctorPrimary, DoctorAccent)
-                                )
+    }
+    
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DoctorBackground)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            // Welcome Card with Professional Gradient
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.Transparent
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(DoctorPrimary, DoctorAccent)
                             )
-                            .padding(24.dp)
+                        )
+                        .padding(24.dp)
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.2f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.MedicalServices,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                }
-                                Column {
-                                    Text(
-                                        text = "Welcome, Dr. Suresh",
-                                        style = MaterialTheme.typography.headlineMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                    Text(
-                                        text = "Cardiology Department",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = Color.White.copy(alpha = 0.9f)
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Filled.MedicalServices,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = "Welcome, Dr. ${doctorProfile?.firstName?.split(" ")?.firstOrNull() ?: "Doctor"}",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = doctorProfile?.specialization ?: "Specialist",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = Color.White.copy(alpha = 0.9f)
+                                )
                             }
                         }
                     }
                 }
             }
-            
-            item {
-                Text(
-                    text = "Today's Overview",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = DoctorTextPrimary
-                )
-            }
-            
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    DoctorStatCard(
-                        title = "Patients",
-                        value = "12",
-                        icon = Icons.Filled.People,
-                        color = DoctorPrimary,
-                        backgroundColor = DoctorCardTeal,
-                        modifier = Modifier.weight(1f),
-                        onClick = onNavigateToPatients
-                    )
-                    DoctorStatCard(
-                        title = "Appointments",
-                        value = "8",
-                        icon = Icons.Filled.CalendarToday,
-                        color = DoctorAccent,
-                        backgroundColor = DoctorCardBlue,
-                        modifier = Modifier.weight(1f),
-                        onClick = onNavigateToSchedule
-                    )
-                }
-            }
-            
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    DoctorStatCard(
-                        title = "Emergency",
-                        value = "2",
-                        icon = Icons.Filled.Warning,
-                        color = DoctorError,
-                        backgroundColor = Color(0xFFFEE2E2),
-                        modifier = Modifier.weight(1f),
-                        onClick = onNavigateToEmergency
-                    )
-                    DoctorStatCard(
-                        title = "Records",
-                        value = "45",
-                        icon = Icons.Filled.Description,
-                        color = DoctorSuccess,
-                        backgroundColor = Color(0xFFD1FAE5),
-                        modifier = Modifier.weight(1f),
-                        onClick = onNavigateToRecords
-                    )
-                }
-            }
-            
-            item {
-                Text(
-                    text = "Quick Actions",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = DoctorTextPrimary
-                )
-            }
-            
-            item {
-                DoctorActionCard(
-                    title = "View Patients",
-                    description = "Manage assigned patients",
+        }
+        
+        item {
+            Text(
+                text = "Today's Overview",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = DoctorTextPrimary
+            )
+        }
+        
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                DoctorStatCard(
+                    title = "Patients",
+                    value = patients.size.toString(),
                     icon = Icons.Filled.People,
-                    iconColor = DoctorPrimary,
+                    color = DoctorPrimary,
+                    backgroundColor = DoctorCardTeal,
+                    modifier = Modifier.weight(1f),
                     onClick = onNavigateToPatients
                 )
-            }
-            
-            item {
-                DoctorActionCard(
-                    title = "Emergency Alerts",
-                    description = "View critical patient alerts",
-                    icon = Icons.Filled.Notifications,
-                    iconColor = DoctorError,
-                    onClick = onNavigateToEmergency
-                )
-            }
-            
-            item {
-                DoctorActionCard(
-                    title = "Schedule",
-                    description = "View today's appointments",
-                    icon = Icons.Filled.Schedule,
-                    iconColor = DoctorAccent,
+                DoctorStatCard(
+                    title = "Appointments",
+                    value = "8", // TODO: Fetch appointments count
+                    icon = Icons.Filled.CalendarToday,
+                    color = DoctorAccent,
+                    backgroundColor = DoctorCardBlue,
+                    modifier = Modifier.weight(1f),
                     onClick = onNavigateToSchedule
                 )
             }
-            
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
+        }
+        
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                DoctorStatCard(
+                    title = "Emergency",
+                    value = patients.count { it.emergencyFlag }.toString(),
+                    icon = Icons.Filled.Warning,
+                    color = DoctorError,
+                    backgroundColor = Color(0xFFFEE2E2),
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToEmergency
+                )
+                DoctorStatCard(
+                    title = "Records",
+                    value = "45", // TODO: Fetch records count
+                    icon = Icons.Filled.Description,
+                    color = DoctorSuccess,
+                    backgroundColor = Color(0xFFD1FAE5),
+                    modifier = Modifier.weight(1f),
+                    onClick = onNavigateToRecords
+                )
             }
+        }
+        
+        item {
+            Text(
+                text = "Quick Actions",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = DoctorTextPrimary
+            )
+        }
+        
+        item {
+            DoctorActionCard(
+                title = "View Patients",
+                description = "Manage assigned patients",
+                icon = Icons.Filled.People,
+                iconColor = DoctorPrimary,
+                onClick = onNavigateToPatients
+            )
+        }
+        
+        item {
+            DoctorActionCard(
+                title = "Emergency Alerts",
+                description = "View critical patient alerts",
+                icon = Icons.Filled.Notifications,
+                iconColor = DoctorError,
+                onClick = onNavigateToEmergency
+            )
+        }
+        
+        item {
+            DoctorActionCard(
+                title = "Schedule",
+                description = "View today's appointments",
+                icon = Icons.Filled.Schedule,
+                iconColor = DoctorAccent,
+                onClick = onNavigateToSchedule
+            )
+        }
+        
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

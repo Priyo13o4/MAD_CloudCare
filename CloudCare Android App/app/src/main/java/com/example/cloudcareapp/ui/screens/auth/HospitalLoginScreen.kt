@@ -26,18 +26,47 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.cloudcareapp.ui.theme.*
 
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.cloudcareapp.ui.viewmodel.AuthViewModel
+import com.example.cloudcareapp.data.model.UserRole
+import androidx.compose.runtime.livedata.observeAsState
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HospitalLoginScreen(
     onBackClick: () -> Unit,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    onSignupClick: () -> Unit = {}
 ) {
-    var email by remember { mutableStateOf("admin@apollohospital.com") }
-    var password by remember { mutableStateOf("Hospital@123") }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
+    
+    val viewModel: AuthViewModel = viewModel()
+    val authState by viewModel.authState.observeAsState()
+    
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+    
+    LaunchedEffect(authState) {
+        when (val state = authState) {
+            is AuthViewModel.AuthState.Success -> {
+                if (state.session.user.role == UserRole.HOSPITAL_ADMIN) {
+                    Toast.makeText(context, "Hospital login successful!", Toast.LENGTH_SHORT).show()
+                    onLoginSuccess()
+                    viewModel.resetAuthState()
+                } else {
+                    Toast.makeText(context, "Access denied: Not a hospital account", Toast.LENGTH_LONG).show()
+                    viewModel.logout()
+                }
+            }
+            is AuthViewModel.AuthState.Error -> {
+                Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
+                viewModel.resetAuthState()
+            }
+            else -> {}
+        }
+    }
     
     Scaffold(
         topBar = {
@@ -98,54 +127,9 @@ fun HospitalLoginScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // Demo Credentials Info
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Success.copy(alpha = 0.1f)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Info,
-                        contentDescription = null,
-                        tint = Success,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Demo Hospital Credentials",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Success
-                        )
-                        Text(
-                            text = "Apollo Hospital, Bangalore",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "Password: Hospital@123",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = { email = it.replace("\n", "") },
                 label = { Text("Hospital Email") },
                 leadingIcon = {
                     Icon(Icons.Filled.Email, contentDescription = null)
@@ -156,14 +140,14 @@ fun HospitalLoginScreen(
                 ),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                enabled = !isLoading
+                enabled = authState !is AuthViewModel.AuthState.Loading
             )
             
             Spacer(modifier = Modifier.height(16.dp))
             
             OutlinedTextField(
                 value = password,
-                onValueChange = { password = it },
+                onValueChange = { password = it.replace("\n", "") },
                 label = { Text("Password") },
                 leadingIcon = {
                     Icon(Icons.Filled.Lock, contentDescription = null)
@@ -186,20 +170,17 @@ fun HospitalLoginScreen(
                 ),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                enabled = !isLoading
+                enabled = authState !is AuthViewModel.AuthState.Loading
             )
             
             Spacer(modifier = Modifier.height(24.dp))
             
             Button(
                 onClick = {
-                    if (email.isNotBlank() && password.isNotBlank()) {
-                        isLoading = true
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            isLoading = false
-                            Toast.makeText(context, "Hospital login successful!", Toast.LENGTH_SHORT).show()
-                            onLoginSuccess()
-                        }, 1500)
+                    val cleanEmail = email.trim()
+                    val cleanPassword = password.trim()
+                    if (cleanEmail.isNotBlank() && cleanPassword.isNotBlank()) {
+                        viewModel.login(cleanEmail, cleanPassword)
                     } else {
                         Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
                     }
@@ -209,9 +190,9 @@ fun HospitalLoginScreen(
                     .height(56.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Success),
-                enabled = !isLoading
+                enabled = authState !is AuthViewModel.AuthState.Loading
             ) {
-                if (isLoading) {
+                if (authState is AuthViewModel.AuthState.Loading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         color = Color.White
@@ -227,11 +208,54 @@ fun HospitalLoginScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            TextButton(onClick = {
-                Toast.makeText(context, "Password recovery coming soon", Toast.LENGTH_SHORT).show()
-            }) {
+            TextButton(
+                onClick = {
+                    Toast.makeText(context, "Password recovery coming soon", Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("Forgot Password?")
             }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // Divider
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Divider(modifier = Modifier.weight(1f))
+                Text(
+                    text = "  OR  ",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Divider(modifier = Modifier.weight(1f))
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Signup Button
+            OutlinedButton(
+                onClick = onSignupClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PersonAdd,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Register Hospital",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

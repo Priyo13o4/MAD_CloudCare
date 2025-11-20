@@ -59,53 +59,7 @@ data class DocumentItem(
     val createdAt: String
 )
 
-/**
- * Doctor Profile Models - Matches schema.prisma exactly
- */
-data class DoctorProfileResponse(
-    @SerializedName("success")
-    val success: Boolean,
-    @SerializedName("doctor")
-    val doctor: DoctorProfileData?,
-    @SerializedName("message")
-    val message: String?
-)
-
-data class DoctorProfileData(
-    @SerializedName("id")
-    val id: String,
-    @SerializedName("user_id")
-    val userId: String,
-    @SerializedName("name")
-    val name: String,
-    @SerializedName("specialization")
-    val specialization: String,
-    @SerializedName("email")
-    val email: String,
-    @SerializedName("phone")
-    val phone: String,
-    @SerializedName("department")
-    val department: String,
-    @SerializedName("join_date")
-    val joinDate: String,
-    @SerializedName("is_active")
-    val isActive: Boolean,
-    @SerializedName("hospital_id")
-    val hospitalId: String?
-)
-
-data class UpdateDoctorProfileRequest(
-    @SerializedName("name")
-    val name: String?,
-    @SerializedName("specialization")
-    val specialization: String?,
-    @SerializedName("email")
-    val email: String?,
-    @SerializedName("phone")
-    val phone: String?,
-    @SerializedName("department")
-    val department: String?
-)
+// Doctor Profile Models moved to DoctorModels.kt to avoid duplication
 
 /**
  * Patient Profile Models - Matches schema.prisma exactly
@@ -208,4 +162,11 @@ data class NotificationItem(
     val timestamp: String,
     @SerializedName("related_id")
     val relatedId: String? // Patient ID, Appointment ID, etc.
+)
+
+data class GenericResponse(
+    @SerializedName("success")
+    val success: Boolean,
+    @SerializedName("message")
+    val message: String
 )

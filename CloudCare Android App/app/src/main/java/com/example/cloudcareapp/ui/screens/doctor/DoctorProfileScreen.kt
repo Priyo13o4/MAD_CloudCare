@@ -10,13 +10,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.cloudcareapp.data.cache.AppDataCache
 import com.example.cloudcareapp.ui.theme.*
+import com.example.cloudcareapp.ui.viewmodel.DoctorProfileViewModel
 
 /**
  * Doctor Profile Screen
@@ -27,19 +31,13 @@ import com.example.cloudcareapp.ui.theme.*
 fun DoctorProfileScreen(
     onBackClick: () -> Unit = {}
 ) {
-    // TODO: Fetch from API - matches Doctor model in schema.prisma
-    val doctorData = remember {
-        DoctorProfile(
-            id = "",
-            userId = "",
-            name = "",
-            specialization = "",
-            email = "",
-            phone = "",
-            department = "",
-            joinDate = "",
-            isActive = true
-        )
+    val viewModel: DoctorProfileViewModel = viewModel()
+    val doctorProfile by viewModel.doctorProfile.observeAsState()
+    
+    LaunchedEffect(Unit) {
+        AppDataCache.getDoctorId()?.let { doctorId ->
+            viewModel.loadDoctorProfile(doctorId)
+        }
     }
     
     Scaffold(
@@ -90,25 +88,25 @@ fun DoctorProfileScreen(
                             .background(DoctorPrimary.copy(alpha = 0.1f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.MedicalServices,
-                            contentDescription = null,
-                            tint = DoctorPrimary,
-                            modifier = Modifier.size(50.dp)
+                        Text(
+                            text = doctorProfile?.firstName?.take(1) ?: "D",
+                            style = MaterialTheme.typography.displayMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = DoctorPrimary
                         )
                     }
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     Text(
-                        text = doctorData.name.ifEmpty { "Doctor Name" },
+                        text = "Dr. ${doctorProfile?.firstName ?: ""} ${doctorProfile?.lastName ?: ""}",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = DoctorTextPrimary
                     )
                     
                     Text(
-                        text = doctorData.specialization.ifEmpty { "Specialization" },
+                        text = doctorProfile?.specialization ?: "Specialist",
                         style = MaterialTheme.typography.bodyLarge,
                         color = DoctorTextSecondary
                     )
@@ -117,14 +115,13 @@ fun DoctorProfileScreen(
                     
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = if (doctorData.isActive) DoctorSuccess.copy(alpha = 0.1f) 
-                               else DoctorTextTertiary.copy(alpha = 0.1f)
+                        color = DoctorSuccess.copy(alpha = 0.1f)
                     ) {
                         Text(
-                            text = if (doctorData.isActive) "Active" else "Inactive",
+                            text = "Active",
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.labelMedium,
-                            color = if (doctorData.isActive) DoctorSuccess else DoctorTextTertiary,
+                            color = DoctorSuccess,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -132,16 +129,28 @@ fun DoctorProfileScreen(
             }
             
             // Department Info
-            ProfileSectionCard(title = "Department Information") {
+            ProfileSectionCard(title = "Professional Information") {
                 ProfileInfoRow(
                     icon = Icons.Filled.Business,
-                    label = "Department",
-                    value = doctorData.department.ifEmpty { "Not assigned" }
+                    label = "Specialization",
+                    value = doctorProfile?.specialization ?: "Not assigned"
+                )
+                if (doctorProfile?.subSpecialization != null) {
+                    ProfileInfoRow(
+                        icon = Icons.Filled.Category,
+                        label = "Sub-Specialization",
+                        value = doctorProfile?.subSpecialization!!
+                    )
+                }
+                ProfileInfoRow(
+                    icon = Icons.Filled.Badge,
+                    label = "License No",
+                    value = doctorProfile?.medicalLicenseNo ?: "Not available"
                 )
                 ProfileInfoRow(
-                    icon = Icons.Filled.CalendarToday,
-                    label = "Join Date",
-                    value = doctorData.joinDate.ifEmpty { "Not available" }
+                    icon = Icons.Filled.WorkHistory,
+                    label = "Experience",
+                    value = "${doctorProfile?.experienceYears ?: 0} years"
                 )
             }
             
@@ -150,13 +159,20 @@ fun DoctorProfileScreen(
                 ProfileInfoRow(
                     icon = Icons.Filled.Email,
                     label = "Email",
-                    value = doctorData.email.ifEmpty { "Not provided" }
+                    value = doctorProfile?.emailProfessional ?: "Not provided"
                 )
                 ProfileInfoRow(
                     icon = Icons.Filled.Phone,
                     label = "Phone",
-                    value = doctorData.phone.ifEmpty { "Not provided" }
+                    value = doctorProfile?.phonePrimary ?: "Not provided"
                 )
+                if (doctorProfile?.city != null) {
+                    ProfileInfoRow(
+                        icon = Icons.Filled.LocationOn,
+                        label = "Location",
+                        value = "${doctorProfile?.city}, ${doctorProfile?.state}"
+                    )
+                }
             }
             
             // System Information
@@ -164,12 +180,12 @@ fun DoctorProfileScreen(
                 ProfileInfoRow(
                     icon = Icons.Filled.Badge,
                     label = "Doctor ID",
-                    value = doctorData.id.ifEmpty { "Not available" }
+                    value = doctorProfile?.id ?: "Not available"
                 )
                 ProfileInfoRow(
                     icon = Icons.Filled.AccountCircle,
                     label = "User ID",
-                    value = doctorData.userId.ifEmpty { "Not available" }
+                    value = doctorProfile?.userId ?: "Not available"
                 )
             }
             

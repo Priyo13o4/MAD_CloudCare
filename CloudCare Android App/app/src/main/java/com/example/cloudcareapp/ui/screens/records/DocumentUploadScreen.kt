@@ -23,7 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.cloudcareapp.data.cache.AppDataCache
-import com.example.cloudcareapp.data.model.DocumentUploadRequest
+import com.example.cloudcareapp.data.model.CreateMedicalRecordRequest
 import com.example.cloudcareapp.data.remote.RetrofitClient
 import com.example.cloudcareapp.ui.theme.*
 import kotlinx.coroutines.Dispatchers
@@ -52,7 +52,22 @@ fun DocumentUploadScreen(
     
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val patientId = AppDataCache.getPatientId() ?: "7"
+    val patientId = AppDataCache.getPatientId()
+    
+    if (patientId == null) {
+        // Show error if no patient ID
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Patient ID not found. Please login again.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = TextPrimary
+            )
+        }
+        return
+    }
     
     // File picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -230,17 +245,15 @@ fun DocumentUploadScreen(
                                         val inputStream: InputStream? = context.contentResolver.openInputStream(selectedFileUri!!)
                                         val bytes = inputStream?.readBytes()
                                         inputStream?.close()
-                                        Base64.encodeToString(bytes, Base64.DEFAULT)
+                                        "data:application/octet-stream;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
                                     }
                                     
-                                    val request = DocumentUploadRequest(
+                                    val request = CreateMedicalRecordRequest(
                                         patientId = patientId,
                                         title = title,
                                         description = description.ifBlank { "No description" },
                                         recordType = selectedRecordType,
-                                        fileBase64 = fileBase64,
-                                        fileName = selectedFileName ?: "document",
-                                        fileType = selectedFileName?.substringAfterLast(".") ?: "pdf"
+                                        fileData = fileBase64
                                     )
                                     
                                     val response = withContext(Dispatchers.IO) {
@@ -249,20 +262,12 @@ fun DocumentUploadScreen(
                                     
                                     isUploading = false
                                     
-                                    if (response.success) {
-                                        Toast.makeText(
-                                            context,
-                                            "Document uploaded successfully!",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        onUploadSuccess()
-                                    } else {
-                                        Toast.makeText(
-                                            context,
-                                            "Upload failed: ${response.message}",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                    }
+                                    Toast.makeText(
+                                        context,
+                                        "Document uploaded successfully!",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    onUploadSuccess()
                                 } catch (e: Exception) {
                                     isUploading = false
                                     Toast.makeText(

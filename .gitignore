@@ -89,7 +89,7 @@ logs/
 *.sqlite3
 
 # Prisma
-prisma/migrations/
+backend/prisma/migrations/
 
 # Celery
 celerybeat-schedule

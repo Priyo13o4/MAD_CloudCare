@@ -280,75 +280,59 @@ async def import_apple_health(export: AppleHealthExport):
         raw_metrics = export.dict().get("metrics", [])
         individual_metrics = AppleHealthParser.convert_to_individual_metrics(raw_metrics)
         
-        # Use userId from export or default for testing
-        patient_id = export.userId if export.userId else "test_patient_001"
-        
-        # Register or update device (no patient ID constraint for now)
+        # IMPORTANT: Device must be paired with an Android patient first
+        # Check if this iOS device is paired with any Android patient
         prisma = get_prisma()
+        
+        pairing = await prisma.devicepairing.find_first(
+            where={
+                "ios_device_id": device_info["device_id"],
+                "is_active": True
+            }
+        )
+        
+        if not pairing:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Device not paired. Please pair this iOS device with your Android account first by scanning the QR code in the Android app."
+            )
+        
+        # Use the Android patient ID from the pairing
+        patient_id = pairing.android_user_id
+        
+        # Verify the Android patient exists
+        patient = await prisma.patient.find_unique(
+            where={"id": patient_id}
+        )
+        
+        if not patient:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Paired patient account not found. Please re-pair your device."
+            )
+        
+        # Check if device is already registered
         device = await prisma.wearabledevice.find_unique(
             where={"device_id": device_info["device_id"]}
         )
         
         if not device:
-            # Create test patient if doesn't exist
-            test_patient = await prisma.patient.find_first(
-                where={"id": patient_id}
-            )
-            
-            if not test_patient:
-                # Create a test user for anonymous uploads
-                test_email = f"{patient_id}@test.cloudcare.local"
-                test_user = await prisma.user.find_unique(where={"email": test_email})
-                
-                if not test_user:
-                    test_user = await prisma.user.create(
-                        data={
-                            "email": test_email,
-                            "password_hash": "test_hash_not_used",
-                            "is_active": True,
-                            "role": "PATIENT",
-                        }
-                    )
-                
-                # Create patient profile with required fields
-                test_patient = await prisma.patient.create(
-                    data={
-                        "id": patient_id,
-                        "user_id": test_user.id,
-                        "aadhar_uid": f"test_uid_{patient_id[:8]}",
-                        "name": "iOS App User",
-                        "age": 0,
-                        "gender": "Not specified",
-                        "blood_type": "Unknown",
-                        "contact": "+910000000000",
-                        "email": test_email,
-                        "address": "iOS App",
-                        "family_contact": "+910000000000",
-                    }
-                )
-                logger.info("Created test patient for iOS uploads", patient_id=patient_id)
-            
-            # Create new device
-            # Try to get device name from pairing, otherwise use device metadata
-            device_name = device_info.get('device_name', 'Apple Device')
-            if not device_name or device_name == 'Apple Device':
-                # Check if there's a pairing with a custom device name
-                pairing = await prisma.devicepairing.find_first(
-                    where={"ios_device_id": device_info["device_id"]}
-                )
-                if pairing:
-                    device_name = pairing.device_name
-            
+            # Create new device entry for this patient
             device = await prisma.wearabledevice.create(
                 data={
                     "patient_id": patient_id,
-                    "name": device_name,
+                    "name": pairing.device_name,
                     "type": device_info["device_type"],
                     "device_id": device_info["device_id"],
                     "is_connected": device_info["is_connected"],
                 }
             )
-            logger.info("Registered new Apple device", device_id=device_info["device_id"])
+            logger.info(
+                "Registered new paired iOS device",
+                device_id=device_info["device_id"],
+                patient_id=patient_id,
+                device_name=pairing.device_name
+            )
         
         # Store individual metrics in MongoDB
         result = await WearablesService.store_individual_metrics(
@@ -414,8 +398,32 @@ async def import_apple_health_batch(exports: List[AppleHealthExport]):
         # Store aggregated metrics
         cloudcare_metrics = batch_result["cloudcare_format"]
         
-        # Use userId from first export or default
-        patient_id = exports[0].userId if exports and exports[0].userId else "test_patient_001"
+        # IMPORTANT: All batch uploads must come from paired devices
+        # Get device ID from first export to check pairing
+        if not batch_result["devices"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No device information found in batch upload"
+            )
+        
+        device_id = batch_result["devices"][0]
+        
+        # Check if this device is paired
+        prisma = get_prisma()
+        pairing = await prisma.devicepairing.find_first(
+            where={
+                "ios_device_id": device_id,
+                "is_active": True
+            }
+        )
+        
+        if not pairing:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Device not paired. Please pair this iOS device with your Android account first."
+            )
+        
+        patient_id = pairing.android_user_id
         
         if cloudcare_metrics:
             from app.models.wearables import HealthMetrics
@@ -492,22 +500,15 @@ async def pair_ios_device(pairing: DevicePairingRequest):
                 detail="Pairing code expired. Please generate a new QR code on iOS device."
             )
         
-        # Check if iOS device is already registered
-        ios_device = await prisma.wearabledevice.find_unique(
-            where={"device_id": pairing.ios_device_id}
-        )
-        
-        if not ios_device:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="iOS device not found. Please sync health data from iOS app first."
-            )
+        # NOTE: We don't require iOS device to be pre-registered
+        # The pairing record itself tracks the iOS device, and we create
+        # a WearableDevice entry for the Android user below
         
         # Check if pairing already exists
         existing_pairing = await prisma.devicepairing.find_first(
             where={
-                "ios_device_id": pairing.ios_device_id,
-                "android_user_id": pairing.android_user_id
+                "ios_device_id": pairing.deviceId,
+                "android_user_id": pairing.androidUserId
             }
         )
         
@@ -517,37 +518,37 @@ async def pair_ios_device(pairing: DevicePairingRequest):
                 where={"id": existing_pairing.id},
                 data={
                     "is_active": True,
-                    "pairing_code": pairing.pairing_code,
-                    "device_name": pairing.device_name,
+                    "pairing_code": pairing.pairingCode,
+                    "device_name": pairing.deviceName,
                     "device_type": pairing.deviceType,
                 }
             )
             
             logger.info(
                 "Updated existing device pairing",
-                ios_device_id=pairing.ios_device_id,
-                android_user_id=pairing.android_user_id
+                ios_device_id=pairing.deviceId,
+                android_user_id=pairing.androidUserId
             )
             
             return DevicePairingResponse(
                 message="Device pairing updated successfully",
                 pairing_id=updated_pairing.id,
                 ios_user_id=pairing.userId,
-                ios_device_id=pairing.ios_device_id,
-                android_user_id=pairing.android_user_id,
+                ios_device_id=pairing.deviceId,
+                android_user_id=pairing.androidUserId,
                 paired_at=updated_pairing.paired_at,
-                device_name=pairing.device_name
+                device_name=pairing.deviceName
             )
         
         # Create new pairing
         new_pairing = await prisma.devicepairing.create(
             data={
                 "ios_user_id": pairing.userId,
-                "ios_device_id": pairing.ios_device_id,
-                "android_user_id": pairing.android_user_id,
-                "device_name": pairing.device_name,
+                "ios_device_id": pairing.deviceId,
+                "android_user_id": pairing.androidUserId,
+                "device_name": pairing.deviceName,
                 "device_type": pairing.deviceType,
-                "pairing_code": pairing.pairing_code,
+                "pairing_code": pairing.pairingCode,
                 "is_active": True,
             }
         )
@@ -556,18 +557,18 @@ async def pair_ios_device(pairing: DevicePairingRequest):
         # This allows the device to show up in the user's device list
         android_device = await prisma.wearabledevice.find_first(
             where={
-                "device_id": pairing.ios_device_id,
-                "patient_id": pairing.android_user_id
+                "device_id": pairing.deviceId,
+                "patient_id": pairing.androidUserId
             }
         )
         
         if not android_device:
             await prisma.wearabledevice.create(
                 data={
-                    "patient_id": pairing.android_user_id,
-                    "name": pairing.device_name,
+                    "patient_id": pairing.androidUserId,
+                    "name": pairing.deviceName,
                     "type": pairing.deviceType,
-                    "device_id": pairing.ios_device_id,
+                    "device_id": pairing.deviceId,
                     "is_connected": True,
                 }
             )
@@ -575,18 +576,18 @@ async def pair_ios_device(pairing: DevicePairingRequest):
         logger.info(
             "Created new device pairing",
             pairing_id=new_pairing.id,
-            ios_device_id=pairing.ios_device_id,
-            android_user_id=pairing.android_user_id
+            ios_device_id=pairing.deviceId,
+            android_user_id=pairing.androidUserId
         )
         
         return DevicePairingResponse(
             message="Device paired successfully! Health data from iOS will now be available on Android.",
             pairing_id=new_pairing.id,
             ios_user_id=pairing.userId,
-            ios_device_id=pairing.ios_device_id,
-            android_user_id=pairing.android_user_id,
+            ios_device_id=pairing.deviceId,
+            android_user_id=pairing.androidUserId,
             paired_at=new_pairing.paired_at,
-            device_name=pairing.device_name
+            device_name=pairing.deviceName
         )
         
     except HTTPException:

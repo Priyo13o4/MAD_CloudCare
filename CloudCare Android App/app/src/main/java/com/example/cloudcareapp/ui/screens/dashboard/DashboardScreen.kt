@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cloudcareapp.data.model.*
 import com.example.cloudcareapp.ui.theme.*
+import com.example.cloudcareapp.ui.viewmodel.AuthViewModel
 import com.example.cloudcareapp.utils.TimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,9 +34,29 @@ fun DashboardScreen(
     onNavigateToFacilities: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToConsents: () -> Unit = {},
-    onNavigateToDevices: () -> Unit = {},
-    viewModel: DashboardViewModel = viewModel()
+    onNavigateToDevices: () -> Unit = {}
 ) {
+    val authViewModel: AuthViewModel = viewModel()
+    val userSession by authViewModel.userSession.observeAsState()
+    
+    // Get patient ID from session, or show error if not available
+    val patientId = userSession?.user?.patientId
+    
+    if (patientId == null) {
+        // Show error state if no patient ID
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Please log in to view dashboard")
+        }
+        return
+    }
+    
+    val viewModel: DashboardViewModel = viewModel(
+        factory = DashboardViewModelFactory(patientId)
+    )
+    
     val uiState by viewModel.uiState.collectAsState()
     val isSyncing by viewModel.isSyncing.collectAsState()
     
@@ -82,7 +104,7 @@ fun DashboardScreen(
 
 @Composable
 fun DashboardContent(
-    patient: Patient,
+    patient: Patient?,  // Made nullable - patient data not shown on dashboard
     stats: DashboardStats,
     activities: List<Activity>,
     healthSummary: HealthSummary?,
@@ -106,10 +128,12 @@ fun DashboardContent(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // Welcome Card
-        item {
-            WelcomeCard(patientName = patient.name)
+        if (patient != null) {
+            item {
+                WelcomeCard(patientName = patient.name)
+            }
         }
-        
+
         // Health Summary Card (Real Data from Backend)
         if (healthSummary != null) {
             item {

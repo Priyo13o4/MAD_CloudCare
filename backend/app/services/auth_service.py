@@ -8,16 +8,14 @@ Provides secure authentication for all user types (Patient, Doctor, Hospital Adm
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 import structlog
 
 from app.core.config import settings
 from app.core.database import get_prisma
+from app.services.aadhar_uid import AadharUIDService
 
 logger = structlog.get_logger(__name__)
-
-# Password hashing configuration
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class AuthService:
@@ -36,7 +34,10 @@ class AuthService:
         Returns:
             str: Hashed password
         """
-        return pwd_context.hash(password)
+        # Truncate to 72 bytes (bcrypt limit) and encode
+        password_bytes = password[:72].encode('utf-8')
+        hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
+        return hashed.decode('utf-8')
     
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -50,7 +51,9 @@ class AuthService:
         Returns:
             bool: True if password matches, False otherwise
         """
-        return pwd_context.verify(plain_password, hashed_password)
+        password_bytes = plain_password[:72].encode('utf-8')
+        hashed_bytes = hashed_password.encode('utf-8')
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
     
     @staticmethod
     def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
@@ -122,34 +125,57 @@ class AuthService:
             return None
     
     @staticmethod
-    async def authenticate_user(email: str, password: str):
+    async def authenticate_user(email: Optional[str] = None, password: str = "", aadhar: Optional[str] = None):
         """
-        Authenticate a user by email and password.
+        Authenticate a user by email or aadhar and password.
         
         Args:
-            email: User's email
+            email: User's email (optional)
             password: User's password
+            aadhar: User's Aadhar number (optional) - will be hashed to match aadhar_uid
             
         Returns:
             User object if authentication successful, None otherwise
         """
         prisma = get_prisma()
         
-        # Find user by email
-        user = await prisma.user.find_unique(where={"email": email})
+        user = None
+        
+        # Lookup by email if provided
+        if email:
+            user = await prisma.user.find_unique(where={"email": email})
+            if not user:
+                logger.warning("Authentication failed - user not found by email", email=email)
+                return None
+        
+        # Lookup by aadhar if provided
+        elif aadhar:
+            # Hash the aadhar number to get aadhar_uid for lookup
+            aadhar_uid = AadharUIDService.generate_uid(aadhar)
+            
+            # Find patient by aadhar_uid, then get associated user
+            patient = await prisma.patient.find_unique(where={"aadhar_uid": aadhar_uid})
+            if not patient:
+                logger.warning("Authentication failed - patient not found by aadhar", aadhar_uid=aadhar_uid[:16])
+                return None
+            
+            # Get user by patient's user_id
+            user = await prisma.user.find_unique(where={"id": patient.user_id})
+            if not user:
+                logger.warning("Authentication failed - user not found for patient", patient_id=patient.id)
+                return None
         
         if not user:
-            logger.warning("Authentication failed - user not found", email=email)
             return None
         
         # Verify password
-        if not AuthService.verify_password(password, user.passwordHash):
-            logger.warning("Authentication failed - invalid password", email=email)
+        if not AuthService.verify_password(password, user.password_hash):
+            logger.warning("Authentication failed - invalid password", user_id=user.id)
             return None
         
         # Check if user is active
-        if not user.isActive:
-            logger.warning("Authentication failed - user inactive", email=email)
+        if not user.is_active:
+            logger.warning("Authentication failed - user inactive", user_id=user.id)
             return None
         
         logger.info("User authenticated successfully", user_id=user.id, role=user.role)

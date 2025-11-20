@@ -60,6 +60,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
+    implementation("androidx.compose.runtime:runtime-livedata:1.6.0")
     
     // Accompanist
     implementation(libs.accompanist.systemuicontroller)

@@ -1,5 +1,7 @@
 package com.example.cloudcareapp.data.model
 
+import com.example.cloudcareapp.data.model.FacilityType
+
 data class Facility(
     val id: Int,
     val name: String,
@@ -7,13 +9,6 @@ data class Facility(
     val patientId: String,
     val iconType: FacilityIconType
 )
-
-enum class FacilityType {
-    HOSPITAL,
-    CLINIC,
-    LAB,
-    PHARMACY
-}
 
 enum class FacilityIconType {
     EYE_CLINIC,
