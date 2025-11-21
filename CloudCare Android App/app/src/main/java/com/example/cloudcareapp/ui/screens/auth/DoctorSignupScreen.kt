@@ -4,6 +4,8 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -27,7 +29,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cloudcareapp.data.model.*
+import com.example.cloudcareapp.data.remote.CloudCareApiService
 import com.example.cloudcareapp.ui.viewmodel.AuthViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,13 +57,20 @@ fun DoctorSignupScreen(
     var specialization by remember { mutableStateOf("") }
     var qualifications by remember { mutableStateOf("") }
     var experienceYears by remember { mutableStateOf("") }
-    var hospitalCode by remember { mutableStateOf("") }
+    var selectedHospitals by remember { mutableStateOf<List<HospitalProfileResponse>>(emptyList()) }
     var consultationFee by remember { mutableStateOf("") }
     var availableForEmergency by remember { mutableStateOf(false) }
     var telemedicineEnabled by remember { mutableStateOf(false) }
     var languages by remember { mutableStateOf("") }
     var clinicAddress by remember { mutableStateOf("") }
     var bio by remember { mutableStateOf("") }
+    
+    // Hospital search state
+    var hospitalSearchQuery by remember { mutableStateOf("") }
+    var allHospitals by remember { mutableStateOf<List<HospitalProfileResponse>>(emptyList()) }
+    var hospitalSearchResults by remember { mutableStateOf<List<HospitalProfileResponse>>(emptyList()) }
+    var isLoadingHospitals by remember { mutableStateOf(false) }
+    var showHospitalDropdown by remember { mutableStateOf(false) }
     
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
@@ -68,10 +79,16 @@ fun DoctorSignupScreen(
     
     val context = LocalContext.current
     val authViewModel: AuthViewModel = viewModel()
+    val scope = rememberCoroutineScope()
     
     val authState by authViewModel.authState.observeAsState()
     val isLoading by authViewModel.isLoading.observeAsState(false)
     val errorMessage by authViewModel.errorMessage.observeAsState()
+    
+    // Initialize API service
+    val apiService = remember {
+        com.example.cloudcareapp.data.remote.RetrofitClient.apiService
+    }
     
     LaunchedEffect(authState) {
         when (val state = authState) {
@@ -83,6 +100,33 @@ fun DoctorSignupScreen(
                 Toast.makeText(context, state.message, Toast.LENGTH_LONG).show()
             }
             else -> {}
+        }
+    }
+    
+    // Load all hospitals on screen mount
+    LaunchedEffect(Unit) {
+        if (allHospitals.isEmpty()) {
+            try {
+                isLoadingHospitals = true
+                allHospitals = apiService.getHospitals()
+            } catch (e: Exception) {
+                allHospitals = emptyList()
+                Toast.makeText(context, "Failed to load hospitals", Toast.LENGTH_SHORT).show()
+            } finally {
+                isLoadingHospitals = false
+            }
+        }
+    }
+    
+    // Filter hospitals based on search query (local filtering, no API calls)
+    fun filterHospitals(query: String) {
+        hospitalSearchResults = if (query.isBlank()) {
+            allHospitals
+        } else {
+            allHospitals.filter { hospital ->
+                hospital.name.contains(query, ignoreCase = true) ||
+                (hospital.hospitalCode?.contains(query, ignoreCase = true) ?: false)
+            }
         }
     }
     
@@ -265,19 +309,184 @@ fun DoctorSignupScreen(
                         
                         Spacer(modifier = Modifier.height(12.dp))
                         
-                        OutlinedTextField(
-                            value = hospitalCode,
-                            onValueChange = { hospitalCode = it },
-                            label = { Text("Hospital Code (HC-XXXXXX) *") },
-                            placeholder = { Text("HC-ABC123") },
-                            leadingIcon = { Icon(Icons.Outlined.LocalHospital, null) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF8B5CF6),
-                                unfocusedBorderColor = Color(0xFFD1D5DB)
-                            )
-                        )
+                        // Hospital Search Field with Chips
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            // Selected Hospital Chips
+                            if (selectedHospitals.isNotEmpty()) {
+                                Text(
+                                    "Selected Hospitals",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color(0xFF6B7280),
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(bottom = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    selectedHospitals.forEach { hospital ->
+                                        FilterChip(
+                                            selected = true,
+                                            onClick = {
+                                                selectedHospitals = selectedHospitals.filter { it.id != hospital.id }
+                                            },
+                                            label = { 
+                                                Text(
+                                                    hospital.name,
+                                                    maxLines = 1,
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+                                            },
+                                            trailingIcon = {
+                                                Icon(
+                                                    Icons.Filled.Close,
+                                                    contentDescription = "Remove",
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = Color(0xFF8B5CF6),
+                                                selectedLabelColor = Color.White
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                            
+                            // Search Box
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                OutlinedTextField(
+                                    value = hospitalSearchQuery,
+                                    onValueChange = { query ->
+                                        hospitalSearchQuery = query
+                                        filterHospitals(query)
+                                        if (query.isNotEmpty()) {
+                                            showHospitalDropdown = true
+                                        }
+                                    },
+                                    label = { Text("Add Hospital *") },
+                                    placeholder = { Text("Search by name or code...") },
+                                    leadingIcon = { Icon(Icons.Outlined.Search, null) },
+                                    trailingIcon = {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            if (hospitalSearchQuery.isNotEmpty()) {
+                                                IconButton(
+                                                    onClick = {
+                                                        hospitalSearchQuery = ""
+                                                        filterHospitals("")
+                                                        showHospitalDropdown = false
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(Icons.Filled.Clear, null, modifier = Modifier.size(20.dp))
+                                                }
+                                            }
+                                            if (isLoadingHospitals) {
+                                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                            } else {
+                                                IconButton(
+                                                    onClick = { 
+                                                        showHospitalDropdown = !showHospitalDropdown
+                                                        if (showHospitalDropdown && hospitalSearchQuery.isEmpty()) {
+                                                            filterHospitals("")
+                                                        }
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(
+                                                        if (showHospitalDropdown) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                                        null,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF8B5CF6),
+                                        unfocusedBorderColor = Color(0xFFD1D5DB)
+                                    )
+                                )
+                                
+                                // Dropdown Menu
+                                if (showHospitalDropdown && !isLoadingHospitals) {
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 64.dp)
+                                            .heightIn(max = 250.dp),
+                                        shape = RoundedCornerShape(12.dp),
+                                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                                    ) {
+                                        Column {
+                                            // Header with close button
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .background(Color(0xFFF9FAFB))
+                                                    .padding(12.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    "Available Hospitals (${hospitalSearchResults.size})",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = Color(0xFF6B7280)
+                                                )
+                                                IconButton(
+                                                    onClick = { showHospitalDropdown = false },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Filled.Close,
+                                                        "Close",
+                                                        tint = Color(0xFF6B7280),
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
+                                            
+                                            Divider(color = Color(0xFFE5E7EB))
+                                            
+                                            if (hospitalSearchResults.isEmpty()) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(32.dp),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        "No hospitals found",
+                                                        color = Color(0xFF6B7280),
+                                                        style = MaterialTheme.typography.bodyMedium
+                                                    )
+                                                }
+                                            } else {
+                                                LazyColumn {
+                                                    items(hospitalSearchResults) { hospital ->
+                                                        val isSelected = selectedHospitals.any { it.id == hospital.id }
+                                                        HospitalDropdownItem(
+                                                            hospital = hospital,
+                                                            isSelected = isSelected,
+                                                            onClick = {
+                                                                selectedHospitals = if (isSelected) {
+                                                                    selectedHospitals.filter { it.id != hospital.id }
+                                                                } else {
+                                                                    selectedHospitals + hospital
+                                                                }
+                                                            }
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     
                     2 -> {
@@ -647,7 +856,7 @@ fun DoctorSignupScreen(
                             val isValid = when (currentStep) {
                                 1 -> email.isNotBlank() && password.isNotBlank() && confirmPassword.isNotBlank() &&
                                         medicalLicenseNo.isNotBlank() && registrationYear.isNotBlank() &&
-                                        registrationState.isNotBlank() && hospitalCode.isNotBlank()
+                                        registrationState.isNotBlank() && selectedHospitals.isNotEmpty()
                                 2 -> title.isNotBlank() && firstName.isNotBlank() && lastName.isNotBlank() &&
                                         phonePrimary.isNotBlank() && specialization.isNotBlank() &&
                                         qualifications.isNotBlank() && experienceYears.isNotBlank()
@@ -665,8 +874,16 @@ fun DoctorSignupScreen(
                                 return@Button
                             }
                             
+                            if (selectedHospitals.isEmpty()) {
+                                Toast.makeText(context, "Please select at least one hospital", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            
                             val qualList = qualifications.split(",").map { it.trim() }.filter { it.isNotBlank() }
                             val langList = languages.split(",").map { it.trim() }.filter { it.isNotBlank() }.ifEmpty { null }
+                            
+                            // Use the first hospital as primary for registration
+                            val primaryHospitalCode = selectedHospitals.first().hospitalCode ?: "UNKNOWN"
                             
                             val request = RegisterDoctorRequest(
                                 email = email,
@@ -683,7 +900,7 @@ fun DoctorSignupScreen(
                                 specialization = specialization,
                                 qualifications = qualList,
                                 experienceYears = experienceYears.toInt(),
-                                hospitalCode = hospitalCode,
+                                hospitalCode = primaryHospitalCode,
                                 consultationFee = consultationFee.toDoubleOrNull(),
                                 availableForEmergency = availableForEmergency,
                                 telemedicineEnabled = telemedicineEnabled,
@@ -718,6 +935,66 @@ fun DoctorSignupScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun HospitalDropdownItem(
+    hospital: HospitalProfileResponse,
+    isSelected: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .background(if (isSelected) Color(0xFFF0F9FF) else Color.Transparent)
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                hospital.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF1A1A1A)
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    hospital.hospitalCode ?: "N/A",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF8B5CF6),
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (!hospital.city.isNullOrBlank()) {
+                    Text("•", color = Color(0xFF9CA3AF), style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        "${hospital.city}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF6B7280)
+                    )
+                }
+            }
+        }
+        if (isSelected) {
+            Icon(
+                Icons.Filled.CheckCircle,
+                null,
+                tint = Color(0xFF10B981),
+                modifier = Modifier.size(24.dp)
+            )
+        } else {
+            Icon(
+                Icons.Outlined.AddCircle,
+                null,
+                tint = Color(0xFF8B5CF6),
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
 }

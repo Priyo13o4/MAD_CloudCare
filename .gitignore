@@ -270,3 +270,4 @@ credentials.json
 *.pid.lock
 health_data_exports/
 CloudSync/
+n8n-cli-toolkit/

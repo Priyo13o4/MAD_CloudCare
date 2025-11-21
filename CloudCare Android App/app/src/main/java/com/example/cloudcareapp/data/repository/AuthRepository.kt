@@ -95,6 +95,7 @@ class AuthRepository(private val context: Context) {
     
     fun logout() {
         sharedPreferences.edit().clear().apply()
+        AppDataCache.clearAll()
     }
     
     // ==================== Token Management ====================

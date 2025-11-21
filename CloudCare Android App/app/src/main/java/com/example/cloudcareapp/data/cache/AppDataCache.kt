@@ -350,6 +350,13 @@ object AppDataCache {
         _hospitalProfileCache.value = null
         _doctorProfileCache.value = null
         
+        // Clear user IDs
+        cachedPatientId = null
+        cachedDoctorId = null
+        cachedHospitalId = null
+        cachedPatientName = null
+        cachedUserName = null
+        
         _lastSyncTimes.clear()
         _lastSyncTimeFlow.value = null
     }

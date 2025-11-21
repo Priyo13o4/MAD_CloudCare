@@ -263,6 +263,15 @@ async def signup_doctor(request: RegisterDoctorRequest):
             include={"doctor": True}
         )
         
+        # Create doctor-hospital association in junction table
+        await prisma.doctorhospital.create(
+            data={
+                "doctor_id": user.doctor.id,
+                "hospital_id": hospital.id,
+                "is_primary": True
+            }
+        )
+        
         # Generate tokens
         tokens = await AuthService.create_tokens_for_user(user)
         

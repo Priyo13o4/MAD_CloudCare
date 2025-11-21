@@ -14,6 +14,18 @@ from pydantic import BaseModel
 logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/doctors")
 
+class HospitalAssociation(BaseModel):
+    id: str
+    hospital_id: str
+    hospital_name: str
+    hospital_code: str
+    is_primary: bool
+    joined_at: datetime
+
+class UpdateDoctorHospitalsRequest(BaseModel):
+    hospital_ids: List[str]
+    primary_hospital_id: Optional[str] = None
+
 
 class DoctorProfileResponse(BaseModel):
     id: str
@@ -65,6 +77,111 @@ async def get_doctor_profile(doctor_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch doctor profile"
         )
+
+@router.get("/{doctor_id}/hospitals", response_model=List[HospitalAssociation])
+async def get_doctor_hospitals(doctor_id: str):
+    """
+    Get all hospitals associated with a doctor.
+    """
+    prisma = get_prisma()
+    try:
+        associations = await prisma.doctorhospital.find_many(
+            where={"doctor_id": doctor_id},
+            include={"hospital": True}
+        )
+        
+        result = []
+        for assoc in associations:
+            result.append(HospitalAssociation(
+                id=assoc.id,
+                hospital_id=assoc.hospital_id,
+                hospital_name=assoc.hospital.name,
+                hospital_code=assoc.hospital.hospital_code,
+                is_primary=assoc.is_primary,
+                joined_at=assoc.joined_at
+            ))
+        
+        return result
+    except Exception as e:
+        logger.error("Failed to fetch doctor hospitals", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{doctor_id}/hospitals")
+async def update_doctor_hospitals(doctor_id: str, request: UpdateDoctorHospitalsRequest):
+    """
+    Update doctor's hospital associations.
+    Creates new associations and removes old ones.
+    """
+    prisma = get_prisma()
+    try:
+        # Verify doctor exists
+        doctor = await prisma.doctor.find_unique(where={"id": doctor_id})
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+        
+        # Get current associations
+        current_assocs = await prisma.doctorhospital.find_many(
+            where={"doctor_id": doctor_id}
+        )
+        current_hospital_ids = {a.hospital_id for a in current_assocs}
+        new_hospital_ids = set(request.hospital_ids)
+        
+        # Remove associations that are no longer needed
+        to_remove = current_hospital_ids - new_hospital_ids
+        if to_remove:
+            await prisma.doctorhospital.delete_many(
+                where={
+                    "doctor_id": doctor_id,
+                    "hospital_id": {"in": list(to_remove)}
+                }
+            )
+        
+        # Add new associations
+        to_add = new_hospital_ids - current_hospital_ids
+        for hospital_id in to_add:
+            # Verify hospital exists
+            hospital = await prisma.hospital.find_unique(where={"id": hospital_id})
+            if not hospital:
+                logger.warning(f"Hospital {hospital_id} not found, skipping")
+                continue
+            
+            is_primary = (hospital_id == request.primary_hospital_id)
+            await prisma.doctorhospital.create(
+                data={
+                    "doctor_id": doctor_id,
+                    "hospital_id": hospital_id,
+                    "is_primary": is_primary
+                }
+            )
+        
+        # Update primary hospital if specified
+        if request.primary_hospital_id:
+            # Clear all primary flags
+            await prisma.doctorhospital.update_many(
+                where={"doctor_id": doctor_id},
+                data={"is_primary": False}
+            )
+            # Set new primary
+            await prisma.doctorhospital.update_many(
+                where={
+                    "doctor_id": doctor_id,
+                    "hospital_id": request.primary_hospital_id
+                },
+                data={"is_primary": True}
+            )
+            # Update doctor's hospital_id
+            await prisma.doctor.update(
+                where={"id": doctor_id},
+                data={"hospital_id": request.primary_hospital_id}
+            )
+        
+        return {"success": True, "message": "Hospital associations updated"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to update doctor hospitals", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 class DoctorPatientResponse(BaseModel):

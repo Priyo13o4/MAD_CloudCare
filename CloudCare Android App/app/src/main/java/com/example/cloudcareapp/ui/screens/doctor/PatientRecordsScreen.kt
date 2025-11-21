@@ -21,6 +21,7 @@ import com.example.cloudcareapp.data.model.MedicalRecordResponse
 import com.example.cloudcareapp.data.remote.RetrofitClient
 import com.example.cloudcareapp.ui.theme.*
 import com.example.cloudcareapp.utils.TimeFormatter
+import com.example.cloudcareapp.utils.FileDownloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -368,21 +369,56 @@ fun RecordDetailDialog(
                     Divider()
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.AttachFile,
-                            contentDescription = null,
-                            tint = DoctorPrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = "Document attached",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = DoctorPrimary,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.AttachFile,
+                                contentDescription = null,
+                                tint = DoctorPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Document attached",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = DoctorPrimary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        
+                        // Download button
+                        val scope = rememberCoroutineScope()
+                        val context = LocalContext.current
+                        IconButton(
+                            onClick = {
+                                scope.launch(Dispatchers.IO) {
+                                    val fileName = FileDownloader.generateFileName(
+                                        record.title,
+                                        record.recordType
+                                    )
+                                    val mimeType = FileDownloader.getMimeTypeFromExtension(fileName)
+                                    
+                                    withContext(Dispatchers.Main) {
+                                        FileDownloader.downloadAndOpenBase64File(
+                                            context,
+                                            record.fileUrl,
+                                            fileName,
+                                            mimeType
+                                        )
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Download,
+                                contentDescription = "Download",
+                                tint = DoctorPrimary
+                            )
+                        }
                     }
                 }
             }

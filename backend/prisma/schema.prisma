@@ -175,8 +175,9 @@ model Doctor {
 
   // Relations
   user                  User                @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  hospital              Hospital?           @relation(fields: [hospital_id], references: [id])
+  hospital              Hospital?           @relation("PrimaryHospital", fields: [hospital_id], references: [id])
   hospital_id           String?
+  hospitals             DoctorHospital[]
   assigned_patients     DoctorPatient[]
   appointments          Appointment[]
   patient_records       PatientRecord[]
@@ -186,6 +187,24 @@ model Doctor {
   @@index([specialization])
   @@index([phone_primary])
   @@map("doctors")
+}
+
+// Many-to-Many relation between Doctors and Hospitals
+model DoctorHospital {
+  id          String   @id @default(uuid())
+  doctor_id   String
+  hospital_id String
+  is_primary  Boolean  @default(false)
+  joined_at   DateTime @default(now())
+  
+  // Relations
+  doctor   Doctor   @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+  hospital Hospital @relation(fields: [hospital_id], references: [id], onDelete: Cascade)
+  
+  @@unique([doctor_id, hospital_id])
+  @@index([doctor_id])
+  @@index([hospital_id])
+  @@map("doctor_hospitals")
 }
 
 model DoctorPatient {
@@ -343,7 +362,8 @@ model Hospital {
 
   // Relations
   user                  User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  doctors               Doctor[]
+  doctors               Doctor[]          @relation("PrimaryHospital")
+  doctor_associations   DoctorHospital[]
   departments           Department[]
   resources             HospitalResource[]
   emergency_cases       EmergencyCase[]

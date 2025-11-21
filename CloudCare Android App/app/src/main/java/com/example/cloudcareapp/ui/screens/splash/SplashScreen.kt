@@ -24,8 +24,12 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun SplashScreen(
-    onNavigateToLoginSelection: () -> Unit
+    onNavigateToLoginSelection: () -> Unit,
+    onNavigateToPatientDashboard: () -> Unit = {},
+    onNavigateToDoctorDashboard: () -> Unit = {},
+    onNavigateToHospitalDashboard: () -> Unit = {}
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var startAnimation by remember { mutableStateOf(false) }
     
     val alphaAnimation = animateFloatAsState(
@@ -43,7 +47,22 @@ fun SplashScreen(
     LaunchedEffect(key1 = true) {
         startAnimation = true
         delay(2500) // Show splash for 2.5 seconds
-        onNavigateToLoginSelection()
+        
+        // Check if user is already logged in
+        val authRepository = com.example.cloudcareapp.data.repository.AuthRepository(context)
+        val hasSession = authRepository.getAccessToken() != null
+        
+        if (hasSession) {
+            // Navigate to appropriate dashboard based on cached user type
+            when {
+                com.example.cloudcareapp.data.cache.AppDataCache.getPatientId() != null -> onNavigateToPatientDashboard()
+                com.example.cloudcareapp.data.cache.AppDataCache.getDoctorId() != null -> onNavigateToDoctorDashboard()
+                com.example.cloudcareapp.data.cache.AppDataCache.getHospitalId() != null -> onNavigateToHospitalDashboard()
+                else -> onNavigateToLoginSelection()
+            }
+        } else {
+            onNavigateToLoginSelection()
+        }
     }
     
     Box(

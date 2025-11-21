@@ -115,6 +115,46 @@ async def list_hospitals():
         logger.error("Failed to list hospitals", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/search", response_model=List[HospitalProfileResponse])
+async def search_hospitals(query: Optional[str] = None):
+    """
+    Search hospitals by name or hospital code.
+    If no query provided, returns all active hospitals.
+    """
+    prisma = get_prisma()
+    try:
+        where_clause = {"is_active": True}
+        
+        if query:
+            # Search by name or hospital code (case-insensitive)
+            where_clause = {
+                "AND": [
+                    {"is_active": True},
+                    {
+                        "OR": [
+                            {"name": {"contains": query, "mode": "insensitive"}},
+                            {"hospital_code": {"contains": query, "mode": "insensitive"}}
+                        ]
+                    }
+                ]
+            }
+        
+        hospitals = await prisma.hospital.find_many(
+            where=where_clause,
+            take=50  # Limit results
+        )
+        
+        results = []
+        for h in hospitals:
+            h_data = h.model_dump() if hasattr(h, 'model_dump') else h.dict()
+            h_data['total_doctors'] = 0
+            results.append(HospitalProfileResponse(**h_data))
+            
+        return results
+    except Exception as e:
+        logger.error("Failed to search hospitals", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/{hospital_id}/dashboard", response_model=HospitalDashboardStats)
 async def get_hospital_dashboard_stats(hospital_id: str):
     """
@@ -125,11 +165,7 @@ async def get_hospital_dashboard_stats(hospital_id: str):
         hospital = await prisma.hospital.find_unique(
             where={"id": hospital_id},
             include={
-                "doctors": True,
                 "emergency_cases": {"where": {"status": "IN_TREATMENT"}},
-                # We need to count patients. For now, let's count active emergency cases + appointments today?
-                # Or just use a placeholder logic if we don't have a direct link.
-                # Let's count unique patients from appointments in the last 30 days + emergency cases.
                 "appointments": {"where": {"status": "SCHEDULED"}} 
             }
         )
@@ -137,8 +173,13 @@ async def get_hospital_dashboard_stats(hospital_id: str):
         if not hospital:
             raise HTTPException(status_code=404, detail="Hospital not found")
             
+        # Count doctors through DoctorHospital junction table
+        doctor_count = await prisma.doctorhospital.count(
+            where={"hospital_id": hospital_id}
+        )
+        
         # Calculate stats
-        total_doctors = len(hospital.doctors)
+        total_doctors = doctor_count
         emergency_cases = len(hospital.emergency_cases)
         
         # For total patients, we'll sum active appointments and emergency cases for now
@@ -171,18 +212,20 @@ async def get_hospital_doctors(hospital_id: str):
     """
     prisma = get_prisma()
     try:
-        doctors = await prisma.doctor.find_many(
-            where={"hospital_id": hospital_id}
+        # Get doctors through the DoctorHospital junction table
+        doctor_associations = await prisma.doctorhospital.find_many(
+            where={"hospital_id": hospital_id},
+            include={"doctor": True}
         )
         
         return [
             DoctorSummary(
-                id=doc.id,
-                name=f"{doc.title} {doc.first_name} {doc.last_name}",
-                specialization=doc.specialization,
-                is_available=doc.is_active, # Using is_active as availability proxy
-                phone=doc.phone_primary
-            ) for doc in doctors
+                id=assoc.doctor.id,
+                name=f"{assoc.doctor.title} {assoc.doctor.first_name} {assoc.doctor.last_name}",
+                specialization=assoc.doctor.specialization,
+                is_available=assoc.doctor.is_active, # Using is_active as availability proxy
+                phone=assoc.doctor.phone_primary
+            ) for assoc in doctor_associations
         ]
     except Exception as e:
         logger.error("Failed to fetch doctors", error=str(e))

@@ -12,9 +12,9 @@ services:
     environment:
       - ENVIRONMENT=development
       - HOST_MACHINE_IP=${HOST_MACHINE_IP:-}
-      - DATABASE_URL=postgresql://cloudcare:cloudcare_password@postgres:5432/cloudcare_db
-      - MONGODB_URL=mongodb://mongodb:27017
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:-postgresql://cloudcare:cloudcare_pwd123@postgres:5432/cloudcare_db}
+      - MONGODB_URL=${MONGODB_URL:-mongodb://mongodb:27017}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
     volumes:
       - ./app:/app/app
       - ./logs:/app/logs
@@ -36,9 +36,9 @@ services:
     image: postgres:15-alpine
     container_name: cloudcare_postgres
     environment:
-      - POSTGRES_USER=cloudcare
-      - POSTGRES_PASSWORD=cloudcare_password
-      - POSTGRES_DB=cloudcare_db
+      - POSTGRES_USER=${POSTGRES_USER:-cloudcare}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-cloudcare_pwd123}
+      - POSTGRES_DB=${POSTGRES_DB:-cloudcare_db}
     ports:
       - "5432:5432"
     volumes:
@@ -77,12 +77,82 @@ services:
       - cloudcare_network
     restart: unless-stopped
 
+  # n8n - Workflow Automation
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: cloudcare_n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_EDITOR_BASE_URL=https://n8n.pipfactor.com
+      - WEBHOOK_URL=https://n8n.pipfactor.com
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - EXECUTIONS_MODE=queue
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_DB=1
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n_db
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-cloudcare}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-cloudcare_pwd123}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-}
+      - N8N_USER_MANAGEMENT_JWT_SECRET=${N8N_USER_MANAGEMENT_JWT_SECRET:-}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - cloudcare_network
+    restart: unless-stopped
+
+  # n8n Worker - Process queued workflows
+  n8n-worker:
+    image: n8nio/n8n:latest
+    container_name: cloudcare_n8n_worker
+    command: worker
+    environment:
+      - N8N_EDITOR_BASE_URL=https://n8n.pipfactor.com
+      - WEBHOOK_URL=https://n8n.pipfactor.com
+      - NODE_ENV=production
+      - EXECUTIONS_MODE=queue
+      - QUEUE_BULL_REDIS_HOST=redis
+      - QUEUE_BULL_REDIS_PORT=6379
+      - QUEUE_BULL_REDIS_DB=1
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n_db
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-cloudcare}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-cloudcare_pwd123}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-}
+      - N8N_USER_MANAGEMENT_JWT_SECRET=${N8N_USER_MANAGEMENT_JWT_SECRET:-}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - cloudcare_network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
     driver: local
   mongodb_data:
     driver: local
   redis_data:
+    driver: local
+  n8n_data:
     driver: local
 
 networks:

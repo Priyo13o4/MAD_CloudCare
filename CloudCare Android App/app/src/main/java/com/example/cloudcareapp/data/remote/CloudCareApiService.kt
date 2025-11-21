@@ -286,6 +286,11 @@ interface CloudCareApiService {
     @GET("hospitals/")
     suspend fun getHospitals(): List<HospitalProfileResponse>
 
+    @GET("hospitals/search")
+    suspend fun searchHospitals(
+        @Query("query") query: String? = null
+    ): List<HospitalProfileResponse>
+
     @GET("hospitals/{hospital_id}/dashboard")
     suspend fun getHospitalDashboardStats(
         @Path("hospital_id") hospitalId: String
@@ -404,5 +409,17 @@ interface CloudCareApiService {
         @Path("hospital_id") hospitalId: String,
         @Body request: AdmitPatientRequest
     ): AdmitPatientResponse
+
+    @GET("doctors/{doctor_id}/hospitals")
+    suspend fun getDoctorHospitals(
+        @Path("doctor_id") doctorId: String
+    ): retrofit2.Response<List<HospitalAssociation>>
+
+    @POST("doctors/{doctor_id}/hospitals")
+    suspend fun updateDoctorHospitals(
+        @Path("doctor_id") doctorId: String,
+        @Body request: UpdateDoctorHospitalsRequest
+    ): retrofit2.Response<Map<String, Any>>
 }
+
 

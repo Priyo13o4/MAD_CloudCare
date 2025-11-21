@@ -579,6 +579,39 @@ Authorization: Bearer <token>
 
 **Effect:** Revokes consent, patient status → LOCKED
 
+#### 4. Get Doctor's Hospitals
+```http
+GET /doctors/{doctor_id}/hospitals
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+[
+  {
+    "hospital_id": "uuid",
+    "hospital_name": "Apollo Hospital Bangalore",
+    "hospital_code": "HC-B2631D",
+    "is_primary": true,
+    "joined_at": "2025-11-21T10:00:00Z"
+  }
+]
+```
+
+#### 5. Update Doctor's Hospitals
+```http
+POST /doctors/{doctor_id}/hospitals
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "hospital_ids": ["uuid1", "uuid2", "uuid3"],
+  "primary_hospital_id": "uuid1"
+}
+```
+
+**Effect:** Updates doctor's hospital associations, maintains many-to-many relationship
+
 ---
 
 ### Patient Endpoints
@@ -748,6 +781,35 @@ Content-Type: application/json
 }
 ```
 
+#### 7. Search Hospitals
+```http
+GET /hospitals/search?query={name_or_code}
+Authorization: Bearer <token>
+```
+
+**Query Parameters:**
+- `query`: Hospital name or code (case-insensitive)
+- Returns up to 50 matching hospitals
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "name": "Apollo Hospital Bangalore",
+    "hospital_code": "HC-B2631D",
+    "city": "Bangalore",
+    "state": "Karnataka"
+  }
+]
+```
+
+#### 8. Get All Hospitals
+```http
+GET /hospitals/
+Authorization: Bearer <token>
+```
+
 ---
 
 ### Health Check Endpoint
@@ -787,6 +849,7 @@ GET /health
 
 **Relationships:**
 - `doctor_patients` - Doctor-patient assignments (status: LOCKED/ACTIVE)
+- `doctor_hospitals` - Doctor-hospital many-to-many (supports multiple hospitals per doctor)
 - `consents` - Data access permissions (PENDING/APPROVED/DENIED/REVOKED)
 - `wearable_devices` - Device registrations
 - `device_pairings` - iOS-Android device links (QR code)
@@ -800,7 +863,7 @@ GET /health
 
 **Hospital Management:**
 - `departments` - Hospital departments
-- `hospital_resources` - Resource tracking (beds, equipment)
+- `hospital_resources` - Resource tracking (beds, equipment, oxygen cylinders, ventilators, ambulances, blood bags)
 - `facilities` - Linked facilities (clinics, labs)
 - `patient_records` - Doctor notes, prescriptions
 
@@ -979,10 +1042,24 @@ CloudCare backend provides a complete healthcare management API with:
 - ✅ **Wearable integration** (Apple Health, 30K+ metrics tested)
 - ✅ **Patient consent system** (granular, time-limited)
 - ✅ **Cross-facility records** (document portability)
+- ✅ **Multi-hospital doctor support** (many-to-many relationships)
+- ✅ **Hospital resource tracking** (oxygen, ventilators, ambulances, blood bags)
 - ✅ **Docker deployment** (production-ready)
 
 **Production URL:** `https://cloudcare.pipfactor.com/api/v1`  
 **Swagger Docs:** `https://cloudcare.pipfactor.com/docs`
+
+### Demo Hospitals
+
+5 demo hospitals are available for testing:
+
+| Hospital | Email | Password | Code |
+|----------|-------|----------|------|
+| Apollo Hospital Bangalore | hospital1@gmail.com | passme@123 | HC-B2631D |
+| Manipal Hospital Whitefield | hospital2@gmail.com | passme@123 | HC-L9MLES |
+| Fortis Hospital Bangalore | hospital3@gmail.com | passme@123 | HC-E8O2O2 |
+| Columbia Asia Hospital Hebbal | hospital4@gmail.com | passme@123 | HC-JXOTB9 |
+| Sakra World Hospital | hospital5@gmail.com | passme@123 | HC-A1NRS2 |
 
 ---
 

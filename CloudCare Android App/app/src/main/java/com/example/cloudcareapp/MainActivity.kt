@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import com.example.cloudcareapp.data.repository.AuthRepository
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -90,6 +91,10 @@ fun CloudCareApp() {
     
     // Logout function
     val handleLogout = {
+        // Clear all session data
+        val authRepository = AuthRepository(context)
+        authRepository.logout()
+        
         Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
         navController.navigate(Screen.LoginSelection.route) {
             popUpTo(0) { inclusive = true }
@@ -331,6 +336,21 @@ fun CloudCareApp() {
                 SplashScreen(
                     onNavigateToLoginSelection = {
                         navController.navigate(Screen.LoginSelection.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
+                    },
+                    onNavigateToPatientDashboard = {
+                        navController.navigate(Screen.Dashboard.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
+                    },
+                    onNavigateToDoctorDashboard = {
+                        navController.navigate(Screen.DoctorDashboard.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                        }
+                    },
+                    onNavigateToHospitalDashboard = {
+                        navController.navigate(Screen.HospitalDashboard.route) {
                             popUpTo(Screen.Splash.route) { inclusive = true }
                         }
                     }

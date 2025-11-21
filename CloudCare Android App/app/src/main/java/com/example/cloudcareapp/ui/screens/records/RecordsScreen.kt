@@ -2,6 +2,7 @@ package com.example.cloudcareapp.ui.screens.records
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -26,6 +27,7 @@ import com.example.cloudcareapp.data.model.MedicalRecordSummary
 import com.example.cloudcareapp.data.model.RecordLookupRequest
 import com.example.cloudcareapp.data.remote.RetrofitClient
 import com.example.cloudcareapp.ui.theme.*
+import com.example.cloudcareapp.utils.FileDownloader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -320,6 +322,7 @@ fun RecordsScreen(
 @Composable
 private fun DocumentCard(document: MedicalRecordResponse) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
     val displayDate = remember(document.date) {
         try {
@@ -386,13 +389,24 @@ private fun DocumentCard(document: MedicalRecordResponse) {
             
             IconButton(onClick = { 
                 if (!document.fileUrl.isNullOrEmpty()) {
-                    try {
-                        val intent = Intent(Intent.ACTION_VIEW)
-                        intent.data = Uri.parse(document.fileUrl)
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        // Handle error
+                    scope.launch(Dispatchers.IO) {
+                        val fileName = FileDownloader.generateFileName(
+                            document.title,
+                            document.recordType
+                        )
+                        val mimeType = FileDownloader.getMimeTypeFromExtension(fileName)
+                        
+                        withContext(Dispatchers.Main) {
+                            FileDownloader.downloadAndOpenBase64File(
+                                context,
+                                document.fileUrl,
+                                fileName,
+                                mimeType
+                            )
+                        }
                     }
+                } else {
+                    Toast.makeText(context, "No file attached", Toast.LENGTH_SHORT).show()
                 }
             }) {
                 Icon(

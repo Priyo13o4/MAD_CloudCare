@@ -175,3 +175,25 @@ data class AdmitPatientResponse(
     val message: String,
     @com.google.gson.annotations.SerializedName("consent_id") val consentId: String?
 )
+
+data class HospitalSearchResult(
+    val id: String,
+    val name: String,
+    @com.google.gson.annotations.SerializedName("hospital_code") val hospitalCode: String,
+    val city: String?,
+    val state: String?
+)
+
+data class HospitalAssociation(
+    val id: String,
+    @com.google.gson.annotations.SerializedName("hospital_id") val hospitalId: String,
+    @com.google.gson.annotations.SerializedName("hospital_name") val hospitalName: String,
+    @com.google.gson.annotations.SerializedName("hospital_code") val hospitalCode: String,
+    @com.google.gson.annotations.SerializedName("is_primary") val isPrimary: Boolean,
+    @com.google.gson.annotations.SerializedName("joined_at") val joinedAt: String
+)
+
+data class UpdateDoctorHospitalsRequest(
+    @com.google.gson.annotations.SerializedName("hospital_ids") val hospitalIds: List<String>,
+    @com.google.gson.annotations.SerializedName("primary_hospital_id") val primaryHospitalId: String? = null
+)
