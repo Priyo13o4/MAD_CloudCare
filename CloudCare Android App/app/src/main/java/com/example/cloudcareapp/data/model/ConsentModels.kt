@@ -55,6 +55,17 @@ data class UpdateConsentRequest(
 )
 
 /**
+ * Can Revoke Response Model
+ * Indicates if consent can be revoked and reason if not
+ */
+data class CanRevokeResponse(
+    @SerializedName("canRevoke")
+    val canRevoke: Boolean,
+    @SerializedName("reason")
+    val reason: String?
+)
+
+/**
  * List of Consent Requests
  */
 data class ConsentListResponse(

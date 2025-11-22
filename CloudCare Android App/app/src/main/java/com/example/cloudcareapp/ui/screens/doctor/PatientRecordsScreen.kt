@@ -45,10 +45,18 @@ fun PatientRecordsScreen(
         scope.launch {
             try {
                 loading = true
+                android.util.Log.d("PatientRecords", "Loading records for patient: $patientId")
                 withContext(Dispatchers.IO) {
                     records = RetrofitClient.apiService.getPatientDocuments(patientId)
                 }
+                android.util.Log.d("PatientRecords", "Loaded ${records.size} records")
+                if (records.isNotEmpty()) {
+                    android.util.Log.d("PatientRecords", "First record: ${records.first().title}")
+                } else {
+                    android.util.Log.w("PatientRecords", "No records returned from API")
+                }
             } catch (e: Exception) {
+                android.util.Log.e("PatientRecords", "Failed to load records", e)
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Failed to load records: ${e.message}", Toast.LENGTH_SHORT).show()
                 }

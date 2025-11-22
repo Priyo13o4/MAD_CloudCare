@@ -174,7 +174,7 @@ fun DoctorDashboardScreen(
                 )
                 DoctorStatCard(
                     title = "Records",
-                    value = "45", // TODO: Fetch records count
+                    value = patients.count { it.accessGranted }.toString(),
                     icon = Icons.Filled.Description,
                     color = DoctorSuccess,
                     backgroundColor = Color(0xFFD1FAE5),

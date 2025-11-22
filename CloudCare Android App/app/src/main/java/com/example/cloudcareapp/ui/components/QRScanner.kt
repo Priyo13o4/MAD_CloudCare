@@ -58,6 +58,27 @@ fun QRScannerScreen(
                 onQRCodeScanned = onQRCodeScanned,
                 modifier = Modifier.fillMaxSize()
             )
+            
+            // Add scanning indicator overlay
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                    )
+                ) {
+                    Text(
+                        text = "Point camera at QR code",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
         } else {
             Column(
                 modifier = Modifier
@@ -166,11 +187,19 @@ private fun processImageProxy(
 
         barcodeScanner.process(inputImage)
             .addOnSuccessListener { barcodes ->
+                android.util.Log.d("QRScanner", "Detected ${barcodes.size} barcodes")
+                barcodes.forEach { barcode ->
+                    android.util.Log.d("QRScanner", "Barcode format: ${barcode.format}, value: ${barcode.rawValue}")
+                }
                 barcodes.firstOrNull { it.format == Barcode.FORMAT_QR_CODE }?.let { barcode ->
                     barcode.rawValue?.let { qrCode ->
+                        android.util.Log.d("QRScanner", "QR Code detected: $qrCode")
                         onQRCodeScanned(qrCode)
                     }
                 }
+            }
+            .addOnFailureListener { e ->
+                android.util.Log.e("QRScanner", "Barcode scanning failed", e)
             }
             .addOnCompleteListener {
                 imageProxy.close()

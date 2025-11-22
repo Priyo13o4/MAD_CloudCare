@@ -46,9 +46,9 @@ fun String.formatDateWithTimezone(outputFormat: String = "HH:mm"): String {
         
         if (utcDate == null) return this
         
-        // Format to local timezone
+        // Format to IST (Asia/Kolkata) timezone
         val localFormat = SimpleDateFormat(outputFormat, Locale.US)
-        localFormat.timeZone = TimeZone.getDefault()
+        localFormat.timeZone = TimeZone.getTimeZone("Asia/Kolkata")
         
         localFormat.format(utcDate)
     } catch (e: Exception) {
@@ -90,7 +90,7 @@ fun String.toLocalCalendar(): Calendar {
         
         if (utcDate == null) return Calendar.getInstance()
         
-        val calendar = Calendar.getInstance()
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Kolkata"))
         calendar.time = utcDate
         return calendar
     } catch (e: Exception) {

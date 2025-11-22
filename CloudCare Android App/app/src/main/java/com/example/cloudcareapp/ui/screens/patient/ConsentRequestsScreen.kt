@@ -318,14 +318,56 @@ private fun ConsentRequestCard(
     onDeny: () -> Unit,
     onRevoke: () -> Unit = {}
 ) {
-    val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy 'at' hh:mm a", Locale.getDefault()) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    var canRevoke by remember { mutableStateOf(true) }
+    var revokeBlockReason by remember { mutableStateOf<String?>(null) }
+    var isCheckingRevoke by remember { mutableStateOf(false) }
+    
+    // Check if consent can be revoked when showing approved consents
+    LaunchedEffect(consent.id, consent.status) {
+        if (consent.status == "APPROVED") {
+            isCheckingRevoke = true
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    RetrofitClient.apiService.checkCanRevokeConsent(consent.id)
+                }
+                canRevoke = response.canRevoke
+                revokeBlockReason = response.reason
+            } catch (e: Exception) {
+                // If check fails, allow revoke by default
+                canRevoke = true
+                revokeBlockReason = null
+            } finally {
+                isCheckingRevoke = false
+            }
+        }
+    }
+    
+    val dateFormat = remember { 
+        SimpleDateFormat("MMM dd, yyyy 'at' hh:mm a", Locale.getDefault()).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+        }
+    }
     val requestedDate = remember(consent.requestedAt) {
         try {
-            val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+            val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).apply {
+                timeZone = TimeZone.getTimeZone("UTC")  // Parse as UTC
+            }
             val date = isoFormat.parse(consent.requestedAt)
             date?.let { dateFormat.format(it) } ?: consent.requestedAt
         } catch (e: Exception) {
-            consent.requestedAt
+            // Try with 'Z' suffix
+            try {
+                val isoFormatZ = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }
+                val date = isoFormatZ.parse(consent.requestedAt)
+                date?.let { dateFormat.format(it) } ?: consent.requestedAt
+            } catch (e2: Exception) {
+                consent.requestedAt
+            }
         }
     }
     
@@ -454,28 +496,60 @@ private fun ConsentRequestCard(
             } else if (consent.status == "APPROVED") {
                 Divider()
                 
+                // Show warning if revoke is blocked
+                if (!canRevoke && revokeBlockReason != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp)
+                            .background(
+                                color = Color(0xFFFEF3C7),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = null,
+                            tint = Color(0xFFD97706),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = revokeBlockReason!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF92400E)
+                        )
+                    }
+                }
+                
                 Button(
                     onClick = { 
-                        // We reuse onDeny for revoke since it sets status to DENIED/REVOKED
-                        // But wait, onDeny sets it to DENIED. We need REVOKED.
-                        // The parent component passes a lambda that sets status to DENIED.
-                        // We need to change the parent to handle REVOKED or just use DENIED for now?
-                        // The user asked for "revoke".
-                        // Let's assume we need a separate callback or modify the existing one.
-                        // For now, I'll use a separate callback if I can, but I can't change the signature easily without changing the caller.
-                        // Actually, I can change the caller in the same file.
-                        onRevoke()
+                        if (canRevoke) {
+                            onRevoke()
+                        }
                     },
+                    enabled = canRevoke && !isCheckingRevoke,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFEF4444)
+                        containerColor = Color(0xFFEF4444),
+                        disabledContainerColor = Color(0xFFE5E7EB)
                     )
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.History,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    if (isCheckingRevoke) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = Color.White
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.History,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("Revoke Access")
                 }

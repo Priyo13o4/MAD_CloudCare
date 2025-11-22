@@ -1,12 +1,12 @@
 package com.example.cloudcareapp.data.repository
 
-import com.example.cloudcareapp.data.cache.AppDataCache
 import com.example.cloudcareapp.data.remote.RetrofitClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
  * Repository for Doctor-related data operations
+ * Always fetches live data from API - no caching
  */
 class DoctorRepository {
     
@@ -14,15 +14,11 @@ class DoctorRepository {
     
     /**
      * Get doctor profile by ID
+     * Always fetches fresh data from API
      */
-    suspend fun getDoctorProfile(doctorId: String, forceRefresh: Boolean = false) = withContext(Dispatchers.IO) {
-        if (!forceRefresh && AppDataCache.getDoctorProfile() != null) {
-            return@withContext AppDataCache.getDoctorProfile()!!
-        }
+    suspend fun getDoctorProfile(doctorId: String) = withContext(Dispatchers.IO) {
         try {
-            val profile = apiService.getDoctorProfile(doctorId)
-            AppDataCache.setDoctorProfile(profile)
-            profile
+            apiService.getDoctorProfile(doctorId)
         } catch (e: Exception) {
             throw Exception("Failed to fetch doctor profile: ${e.message}")
         }

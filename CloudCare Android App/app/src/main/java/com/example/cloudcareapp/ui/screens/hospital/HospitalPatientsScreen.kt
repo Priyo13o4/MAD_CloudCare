@@ -14,19 +14,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import android.widget.Toast
 import com.example.cloudcareapp.data.cache.AppDataCache
 import com.example.cloudcareapp.data.model.PatientQRData
 import com.example.cloudcareapp.data.model.PatientSummary
+import com.example.cloudcareapp.data.remote.RetrofitClient
 import com.example.cloudcareapp.data.repository.HospitalRepository
 import com.example.cloudcareapp.ui.components.QRScannerScreen
 import com.example.cloudcareapp.ui.theme.*
 import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -39,9 +44,9 @@ fun HospitalPatientsScreen(
     val scope = rememberCoroutineScope()
     val repository = remember { HospitalRepository() }
     
-    // Initialize with cached data
-    var patients by remember { mutableStateOf(AppDataCache.getHospitalPatients()) }
-    var isLoading by remember { mutableStateOf(patients.isEmpty()) }
+    // Always fetch live data - no cache initialization
+    var patients by remember { mutableStateOf<List<PatientSummary>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Active, 1: Scheduled, 2: Discharged
@@ -54,13 +59,11 @@ fun HospitalPatientsScreen(
     fun loadPatients() {
         val hospitalId = AppDataCache.getHospitalId()
         if (hospitalId != null) {
-            if (patients.isEmpty()) {
-                isLoading = true
-            }
+            isLoading = true
             scope.launch {
                 try {
-                    // Fetch ALL patients (filter = null) to allow local filtering and caching
-                    val allPatients = repository.getPatients(hospitalId, forceRefresh = false, statusFilter = null)
+                    // Fetch ALL patients (filter = null) to allow local filtering
+                    val allPatients = repository.getPatients(hospitalId, statusFilter = null)
                     patients = allPatients
                     isLoading = false
                 } catch (e: Exception) {
@@ -89,11 +92,19 @@ fun HospitalPatientsScreen(
         
         patients.filter { patient ->
             // Match status (case insensitive)
-            // Note: API might return "Emergency" which should probably be under "Active"
+            // Active tab includes: Active, Emergency, Admitted, Admission Pending
             val matchesStatus = if (selectedTab == 0) {
-                patient.status.equals("Active", ignoreCase = true) || patient.status.equals("Emergency", ignoreCase = true)
+                patient.status.equals("Active", ignoreCase = true) || 
+                patient.status.equals("Emergency", ignoreCase = true) ||
+                patient.status.equals("Admitted", ignoreCase = true) ||
+                patient.status.contains("Admission", ignoreCase = true)
+            } else if (selectedTab == 1) {
+                // Scheduled tab includes: Appointment, Scheduled
+                patient.status.contains("Appointment", ignoreCase = true) ||
+                patient.status.equals("Scheduled", ignoreCase = true)
             } else {
-                patient.status.equals(statusFilter, ignoreCase = true)
+                // Discharged tab
+                patient.status.contains("Discharged", ignoreCase = true)
             }
             
             matchesStatus && (searchQuery.isBlank() || 
@@ -244,7 +255,11 @@ fun PatientCard(
     showManage: Boolean = true,
     onClick: () -> Unit = {}
 ) {
-    val dateFormat = remember { SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()) }
+    val dateFormat = remember { 
+        SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+        }
+    }
     val displayDate = remember(patient.lastVisit) {
         try {
             if (patient.lastVisit != null) {
@@ -330,6 +345,7 @@ fun AdmitPatientDialog(
     onAdmitSuccess: () -> Unit
 ) {
     var aadharNumber by remember { mutableStateOf("") }
+    var patientId by remember { mutableStateOf<String?>(null) }  // Store patient ID from QR
     var reason by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -340,6 +356,7 @@ fun AdmitPatientDialog(
     
     val scope = rememberCoroutineScope()
     val repository = remember { HospitalRepository() }
+    val context = LocalContext.current
 
     if (showScanner) {
         Dialog(
@@ -349,16 +366,58 @@ fun AdmitPatientDialog(
             Box(modifier = Modifier.fillMaxSize()) {
                 QRScannerScreen(
                     onQRCodeScanned = { qrCode ->
+                        android.util.Log.d("AdmitPatient", "QR Code scanned: $qrCode")
                         showScanner = false
-                        if (qrCode.length == 12 && qrCode.all { it.isDigit() }) {
-                            aadharNumber = qrCode
-                            isAadharError = false
-                        } else {
+                        isSubmitting = true
+                        error = null
+                        
+                        scope.launch {
                             try {
-                                val qrData = Gson().fromJson(qrCode, PatientQRData::class.java)
-                                // Handle complex QR if needed
+                                // Check if it's a plain 12-digit Aadhar number
+                                if (qrCode.length == 12 && qrCode.all { it.isDigit() }) {
+                                    android.util.Log.d("AdmitPatient", "Valid Aadhar number detected")
+                                    withContext(Dispatchers.Main) {
+                                        aadharNumber = qrCode
+                                        isAadharError = false
+                                        isSubmitting = false
+                                    }
+                                } else {
+                                    android.util.Log.d("AdmitPatient", "Not a plain Aadhar, attempting JSON parse")
+                                    // Try to parse as patient QR data
+                                    try {
+                                        val qrData = Gson().fromJson(qrCode, PatientQRData::class.java)
+                                        android.util.Log.d("AdmitPatient", "Parsed QR type: ${qrData.type}")
+                                        
+                                        if (qrData.type == "patient_health_record") {
+                                            // Store patient ID from QR code
+                                            android.util.Log.d("AdmitPatient", "Patient ID from QR: ${qrData.patientId}")
+                                            withContext(Dispatchers.Main) {
+                                                patientId = qrData.patientId
+                                                aadharNumber = "QR Code Scanned"  // Show indication
+                                                isAadharError = false
+                                                isSubmitting = false
+                                                Toast.makeText(context, "Patient QR code detected", Toast.LENGTH_SHORT).show()
+                                            }
+                                        } else {
+                                            withContext(Dispatchers.Main) {
+                                                error = "Invalid QR code format"
+                                                isSubmitting = false
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("AdmitPatient", "Failed to process QR code", e)
+                                        withContext(Dispatchers.Main) {
+                                            error = "Failed to read QR code: ${e.message}"
+                                            isSubmitting = false
+                                        }
+                                    }
+                                }
                             } catch (e: Exception) {
-                                // Ignore
+                                android.util.Log.e("AdmitPatient", "Error processing QR", e)
+                                withContext(Dispatchers.Main) {
+                                    error = "Error: ${e.message}"
+                                    isSubmitting = false
+                                }
                             }
                         }
                     },
@@ -425,12 +484,20 @@ fun AdmitPatientDialog(
                 Button(
                     onClick = {
                         val hospitalId = AppDataCache.getHospitalId()
-                        if (hospitalId != null && aadharNumber.length == 12) {
+                        // Validate: either has patient_id from QR or valid 12-digit Aadhar
+                        val isValid = patientId != null || (aadharNumber.length == 12 && aadharNumber.all { it.isDigit() })
+                        
+                        if (hospitalId != null && isValid) {
                             isSubmitting = true
                             error = null
                             scope.launch {
                                 try {
-                                    val response = repository.admitPatient(hospitalId, aadharNumber, reason.ifEmpty { "Hospital Admission" })
+                                    val response = repository.admitPatient(
+                                        hospitalId = hospitalId,
+                                        aadharNumber = if (patientId == null) aadharNumber else null,
+                                        patientId = patientId,
+                                        reason = reason.ifEmpty { "Hospital Admission" }
+                                    )
                                     if (response.success) {
                                         successMessage = "Request sent! Patient must approve."
                                         kotlinx.coroutines.delay(1500)
@@ -445,7 +512,10 @@ fun AdmitPatientDialog(
                                 }
                             }
                         } else {
-                            isAadharError = true
+                            isAadharError = patientId == null  // Only show error if no QR code scanned
+                            if (patientId == null) {
+                                error = "Please scan QR code or enter valid 12-digit Aadhar"
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),

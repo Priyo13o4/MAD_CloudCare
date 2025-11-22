@@ -323,7 +323,11 @@ fun RecordsScreen(
 private fun DocumentCard(document: MedicalRecordResponse) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
+    val dateFormat = remember { 
+        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).apply {
+            timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+        }
+    }
     val displayDate = remember(document.date) {
         try {
             dateFormat.format(Date.from(java.time.Instant.parse(document.date)))

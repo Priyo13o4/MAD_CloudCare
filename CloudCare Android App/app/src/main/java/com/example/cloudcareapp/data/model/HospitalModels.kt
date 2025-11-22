@@ -166,7 +166,8 @@ data class MedicalRecordSummary(
 )
 
 data class AdmitPatientRequest(
-    @com.google.gson.annotations.SerializedName("aadhar_number") val aadharNumber: String,
+    @com.google.gson.annotations.SerializedName("aadhar_number") val aadharNumber: String? = null,
+    @com.google.gson.annotations.SerializedName("patient_id") val patientId: String? = null,
     val reason: String = "Hospital Admission"
 )
 

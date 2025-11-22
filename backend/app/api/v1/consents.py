@@ -231,9 +231,6 @@ async def update_consent_status(consent_id: str, update: UpdateConsentRequest):
             # Handle HOSPITAL_ADMISSION
             if consent.request_type == "HOSPITAL_ADMISSION":
                 # Find hospital by name (facility_name)
-                # This is a bit loose, but facility_name is what we have in Consent.
-                # Ideally we should store facility_id in Consent, but schema doesn't have it.
-                # We can try to find the hospital.
                 hospital = await prisma.hospital.find_first(where={"name": consent.facility_name})
                 
                 if hospital:
@@ -248,32 +245,46 @@ async def update_consent_status(consent_id: str, update: UpdateConsentRequest):
                     )
                     
                     if not existing_appt:
-                        # We need a doctor ID for appointment. 
-                        # Let's pick the first available doctor or a default one, or make doctor_id optional in Appointment?
-                        # Schema says doctor_id is required.
-                        # Let's find a doctor in this hospital.
-                        doctor = await prisma.doctor.find_first(where={"hospital_id": hospital.id})
+                        # Find any doctor in this hospital for the appointment record
+                        # First try to find through DoctorHospital junction table
+                        doctor_hospital = await prisma.doctorhospital.find_first(
+                            where={"hospital_id": hospital.id}
+                        )
                         
-                        if doctor:
+                        doctor_id = None
+                        if doctor_hospital:
+                            doctor_id = doctor_hospital.doctor_id
+                        else:
+                            # Fallback: try direct hospital_id in doctor (if exists in your schema)
+                            doctor = await prisma.doctor.find_first(
+                                where={"hospital_id": hospital.id}
+                            )
+                            if doctor:
+                                doctor_id = doctor.id
+                        
+                        if doctor_id:
                             await prisma.appointment.create(
                                 data={
                                     "patient_id": consent.patient_id,
-                                    "doctor_id": doctor.id,
+                                    "doctor_id": doctor_id,
                                     "hospital_id": hospital.id,
                                     "date": datetime.now(),
                                     "time": datetime.now().strftime("%H:%M"),
                                     "type": "ADMISSION",
-                                    "department": "General", # Default
+                                    "department": "General",
                                     "reason": consent.description or "Hospital Admission",
-                                    "status": "IN_PROGRESS" # Represents Admitted
+                                    "status": "IN_PROGRESS"  # Represents actively admitted
                                 }
                             )
                             logger.info("Created admission appointment", patient_id=consent.patient_id, hospital_id=hospital.id)
                         else:
-                            logger.warning("No doctor found for hospital admission", hospital_id=hospital.id)
+                            logger.warning("No doctor found for hospital admission - cannot create appointment", hospital_id=hospital.id)
+                    else:
+                        logger.info("Patient already has active admission", patient_id=consent.patient_id, hospital_id=hospital.id)
+                else:
+                    logger.warning("Hospital not found for admission consent", facility_name=consent.facility_name)
             
-            # Find the doctor_patient relationship by facility_name (which contains doctor info)
-            # We need to update the status from LOCKED to ACTIVE
+            # Find the doctor_patient relationship and update status from LOCKED to ACTIVE
             doctor_patients = await prisma.doctorpatient.find_many(
                 where={
                     "patient_id": consent.patient_id,
@@ -281,7 +292,7 @@ async def update_consent_status(consent_id: str, update: UpdateConsentRequest):
                 }
             )
             
-            # Update all locked relationships for this patient (in case of multiple pending)
+            # Update all locked relationships for this patient
             for dp in doctor_patients:
                 await prisma.doctorpatient.update(
                     where={"id": dp.id},
@@ -366,6 +377,72 @@ async def delete_consent(consent_id: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete consent request"
+        )
+
+
+@router.get("/{consent_id}/can-revoke")
+async def check_can_revoke_consent(consent_id: str):
+    """
+    Check if a consent can be revoked.
+    For HOSPITAL_ADMISSION consents, checks if patient has been discharged.
+    Returns canRevoke boolean and reason if not allowed.
+    """
+    prisma = get_prisma()
+    
+    try:
+        consent = await prisma.consent.find_unique(
+            where={"id": consent_id}
+        )
+        
+        if not consent:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Consent request not found"
+            )
+        
+        # Only check for approved consents
+        if consent.status != "APPROVED":
+            return {
+                "canRevoke": False,
+                "reason": "Consent is not approved"
+            }
+        
+        # For HOSPITAL_ADMISSION, check if patient has active appointments
+        if consent.request_type == "HOSPITAL_ADMISSION":
+            # Find hospital by name (facility_name contains hospital name)
+            hospital = await prisma.hospital.find_first(
+                where={"name": consent.facility_name}
+            )
+            
+            if hospital:
+                # Check for IN_PROGRESS appointments
+                active_appointments = await prisma.appointment.find_many(
+                    where={
+                        "hospital_id": hospital.id,
+                        "patient_id": consent.patient_id,
+                        "status": "IN_PROGRESS"
+                    }
+                )
+                
+                if active_appointments:
+                    return {
+                        "canRevoke": False,
+                        "reason": "Patient must be discharged before revoking hospital access"
+                    }
+        
+        # All checks passed
+        return {
+            "canRevoke": True,
+            "reason": None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to check consent revoke status", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to check consent revoke status"
         )
 
 

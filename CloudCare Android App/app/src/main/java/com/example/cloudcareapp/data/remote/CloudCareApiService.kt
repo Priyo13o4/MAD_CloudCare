@@ -383,6 +383,18 @@ interface CloudCareApiService {
     ): ConsentResponse
     
     /**
+     * Check if consent can be revoked
+     * For HOSPITAL_ADMISSION, checks if patient has been discharged
+     * 
+     * @param consentId Consent request ID
+     * @return Can revoke status with reason
+     */
+    @GET("consents/{consent_id}/can-revoke")
+    suspend fun checkCanRevokeConsent(
+        @Path("consent_id") consentId: String
+    ): CanRevokeResponse
+    
+    /**
      * Delete consent request
      * 
      * @param consentId Consent request ID

@@ -226,15 +226,9 @@ async def get_doctor_patients(doctor_id: str, db: Prisma = Depends(get_prisma)):
         for rel in relationships:
             patient = rel.patient
             
-            # Check for consent
-            # In a real app, we would check if the consent is for this specific doctor/hospital
-            consent = await db.consent.find_first(
-                where={
-                    "patient_id": rel.patient_id,
-                    "status": "APPROVED"
-                }
-            )
-            access_granted = consent is not None
+            # Access is granted if the DoctorPatient relationship status is ACTIVE
+            # (set by consent approval process)
+            access_granted = rel.status == "ACTIVE"
             
             # Calculate age from date_of_birth
             age = None

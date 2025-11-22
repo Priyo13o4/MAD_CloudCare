@@ -13,22 +13,20 @@ import kotlinx.coroutines.launch
 class HospitalDashboardViewModel : ViewModel() {
     private val repository = HospitalRepository()
 
-    // Initialize with cached data
-    private val _stats = MutableStateFlow<HospitalDashboardStats?>(AppDataCache.getHospitalDashboardStats())
+    // Always fetch live data - no cache initialization
+    private val _stats = MutableStateFlow<HospitalDashboardStats?>(null)
     val stats: StateFlow<HospitalDashboardStats?> = _stats.asStateFlow()
 
-    private val _isLoading = MutableStateFlow(AppDataCache.getHospitalDashboardStats() == null)
+    private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val _hospitalName = MutableStateFlow(AppDataCache.getHospitalProfile()?.name ?: "")
+    private val _hospitalName = MutableStateFlow("")
     val hospitalName: StateFlow<String> = _hospitalName.asStateFlow()
 
-    private val _hospitalLocation = MutableStateFlow(
-        AppDataCache.getHospitalProfile()?.let { "${it.city ?: ""}, ${it.state ?: ""}" } ?: ""
-    )
+    private val _hospitalLocation = MutableStateFlow("")
     val hospitalLocation: StateFlow<String> = _hospitalLocation.asStateFlow()
 
     init {
@@ -37,10 +35,7 @@ class HospitalDashboardViewModel : ViewModel() {
 
     fun loadDashboardData() {
         viewModelScope.launch {
-            // Only show loading if we don't have data
-            if (_stats.value == null) {
-                _isLoading.value = true
-            }
+            _isLoading.value = true
             _error.value = null
             try {
                 val hospitalId = AppDataCache.getHospitalId()

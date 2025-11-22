@@ -111,14 +111,15 @@ fun DoctorQRScannerScreen(
                                         val response = RetrofitClient.apiService.createConsentRequest(request)
                                         
                                         withContext(Dispatchers.Main) {
-                                            // ✅ FIX: Check if this is a duplicate consent request
+                                            // Check if this is a duplicate consent request (status is PENDING)
                                             if (response.status == "PENDING") {
+                                                // Could be new or existing - show generic success message
+                                                scanResult = "Consent request sent! Patient will receive notification to approve."
                                                 Toast.makeText(
                                                     context,
-                                                    "Consent request already waiting for approval",
-                                                    Toast.LENGTH_SHORT
+                                                    "Patient added to your dashboard. Awaiting consent approval.",
+                                                    Toast.LENGTH_LONG
                                                 ).show()
-                                                scanResult = "Consent request already pending"
                                             } else {
                                                 scanResult = "Success! Consent request sent to patient."
                                                 Toast.makeText(

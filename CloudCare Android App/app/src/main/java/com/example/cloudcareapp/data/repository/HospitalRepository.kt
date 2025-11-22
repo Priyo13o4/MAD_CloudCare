@@ -1,6 +1,5 @@
 package com.example.cloudcareapp.data.repository
 
-import com.example.cloudcareapp.data.cache.AppDataCache
 import com.example.cloudcareapp.data.model.AdmitPatientRequest
 import com.example.cloudcareapp.data.model.DischargePatientRequest
 import com.example.cloudcareapp.data.model.ResourceUpdate
@@ -10,6 +9,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * Repository for Hospital-related data operations
+ * Always fetches live data from API - no caching
  */
 class HospitalRepository {
     
@@ -17,54 +17,34 @@ class HospitalRepository {
     
     /**
      * Get hospital profile by ID
+     * Always fetches fresh data from API
      */
-    suspend fun getHospitalProfile(hospitalId: String, forceRefresh: Boolean = false) = withContext(Dispatchers.IO) {
-        if (!forceRefresh && AppDataCache.getHospitalProfile() != null) {
-            return@withContext AppDataCache.getHospitalProfile()!!
-        }
-        val profile = apiService.getHospitalProfile(hospitalId)
-        AppDataCache.setHospitalProfile(profile)
-        profile
+    suspend fun getHospitalProfile(hospitalId: String) = withContext(Dispatchers.IO) {
+        apiService.getHospitalProfile(hospitalId)
     }
     
     /**
      * Get hospital dashboard stats
+     * Always fetches fresh data from API
      */
-    suspend fun getDashboardStats(hospitalId: String, forceRefresh: Boolean = false) = withContext(Dispatchers.IO) {
-        if (!forceRefresh && AppDataCache.getHospitalDashboardStats() != null) {
-            return@withContext AppDataCache.getHospitalDashboardStats()!!
-        }
-        val stats = apiService.getHospitalDashboardStats(hospitalId)
-        AppDataCache.setHospitalDashboardStats(stats)
-        stats
+    suspend fun getDashboardStats(hospitalId: String) = withContext(Dispatchers.IO) {
+        apiService.getHospitalDashboardStats(hospitalId)
     }
 
     /**
      * Get list of doctors
+     * Always fetches fresh data from API
      */
-    suspend fun getDoctors(hospitalId: String, forceRefresh: Boolean = false) = withContext(Dispatchers.IO) {
-        if (!forceRefresh && AppDataCache.getHospitalDoctors().isNotEmpty()) {
-            return@withContext AppDataCache.getHospitalDoctors()
-        }
-        val doctors = apiService.getHospitalDoctors(hospitalId)
-        AppDataCache.setHospitalDoctors(doctors)
-        doctors
+    suspend fun getDoctors(hospitalId: String) = withContext(Dispatchers.IO) {
+        apiService.getHospitalDoctors(hospitalId)
     }
 
     /**
      * Get list of patients
+     * Always fetches fresh data from API
      */
-    suspend fun getPatients(hospitalId: String, forceRefresh: Boolean = false, statusFilter: String? = null) = withContext(Dispatchers.IO) {
-        // If filtering, we might skip cache or have separate cache keys. 
-        // For simplicity, if filter is present, skip cache or just fetch fresh.
-        if (statusFilter == null && !forceRefresh && AppDataCache.getHospitalPatients().isNotEmpty()) {
-            return@withContext AppDataCache.getHospitalPatients()
-        }
-        val patients = apiService.getHospitalPatients(hospitalId, statusFilter)
-        if (statusFilter == null) {
-            AppDataCache.setHospitalPatients(patients)
-        }
-        patients
+    suspend fun getPatients(hospitalId: String, statusFilter: String? = null) = withContext(Dispatchers.IO) {
+        apiService.getHospitalPatients(hospitalId, statusFilter)
     }
 
     /**
@@ -82,10 +62,15 @@ class HospitalRepository {
     }
 
     /**
-     * Admit a patient
+     * Admit a patient by Aadhar or patient ID
      */
-    suspend fun admitPatient(hospitalId: String, aadharNumber: String, reason: String) = withContext(Dispatchers.IO) {
-        apiService.admitPatient(hospitalId, AdmitPatientRequest(aadharNumber, reason))
+    suspend fun admitPatient(
+        hospitalId: String, 
+        aadharNumber: String? = null, 
+        patientId: String? = null,
+        reason: String
+    ) = withContext(Dispatchers.IO) {
+        apiService.admitPatient(hospitalId, AdmitPatientRequest(aadharNumber, patientId, reason))
     }
 
     /**

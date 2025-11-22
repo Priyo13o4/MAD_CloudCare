@@ -89,7 +89,8 @@ class ResourceUpdate(BaseModel):
     blood_bags: Optional[int] = None
 
 class AdmitPatientRequest(BaseModel):
-    aadhar_number: str
+    aadhar_number: Optional[str] = None
+    patient_id: Optional[str] = None  # Alternative to Aadhar for QR code scans
     reason: Optional[str] = "Hospital Admission"
 
 @router.get("/", response_model=List[HospitalProfileResponse])
@@ -471,7 +472,7 @@ async def get_hospital_profile(hospital_id: str):
 @router.post("/{hospital_id}/admit")
 async def admit_patient(hospital_id: str, request: AdmitPatientRequest):
     """
-    Request to admit a patient by Aadhar number.
+    Request to admit a patient by Aadhar number or patient ID.
     Creates a consent request for HOSPITAL_ADMISSION.
     """
     prisma = get_prisma()
@@ -481,16 +482,27 @@ async def admit_patient(hospital_id: str, request: AdmitPatientRequest):
         if not hospital:
             raise HTTPException(status_code=404, detail="Hospital not found")
 
-        # 2. Find Patient by Aadhar (using UID service)
-        from app.services.aadhar_uid import AadharUIDService
-        try:
-            uid = AadharUIDService.generate_uid(request.aadhar_number)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid Aadhar number")
-            
-        patient = await prisma.patient.find_unique(where={"aadhar_uid": uid})
-        if not patient:
-            raise HTTPException(status_code=404, detail="Patient not found with this Aadhar")
+        # 2. Find Patient - either by patient_id or Aadhar
+        patient = None
+        
+        if request.patient_id:
+            # Direct patient ID lookup (from QR code scan)
+            patient = await prisma.patient.find_unique(where={"id": request.patient_id})
+            if not patient:
+                raise HTTPException(status_code=404, detail="Patient not found")
+        elif request.aadhar_number:
+            # Find Patient by Aadhar (using UID service)
+            from app.services.aadhar_uid import AadharUIDService
+            try:
+                uid = AadharUIDService.generate_uid(request.aadhar_number)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid Aadhar number")
+                
+            patient = await prisma.patient.find_unique(where={"aadhar_uid": uid})
+            if not patient:
+                raise HTTPException(status_code=404, detail="Patient not found with this Aadhar")
+        else:
+            raise HTTPException(status_code=400, detail="Either aadhar_number or patient_id is required")
 
         # 3. Check if already admitted (active appointment or emergency case)
         # For now, just check if there is a pending consent request

@@ -46,12 +46,15 @@ fun PatientDetailScreen(
     
     // Show records screen if requested
     if (showRecordsScreen && patient.accessGranted) {
+        android.util.Log.d("PatientDetail", "Opening records screen for patient: ${patient.patientId}, accessGranted: ${patient.accessGranted}")
         PatientRecordsScreen(
             patientId = patient.patientId,
             patientName = patient.patientName,
             onBackClick = { showRecordsScreen = false }
         )
         return
+    } else if (showRecordsScreen && !patient.accessGranted) {
+        android.util.Log.e("PatientDetail", "Cannot open records - accessGranted is false for patient: ${patient.patientId}")
     }
     
     // Load patient details
